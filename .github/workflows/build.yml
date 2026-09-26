@@ -67,3 +67,54 @@ jobs:
           path: |
             build/app/outputs/flutter-apk/app-phone-release.apk
             build/app/outputs/flutter-apk/app-wear-release.apk
+
+  # Launches the phone APK in an emulator and captures crashes, logs and a screenshot.
+  smoke-test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: track-watch-apks
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Launch phone app in emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb install -r app-phone-release.apk
+            adb logcat -c
+            adb shell am start -W -n com.ihoru.trackwatch/.MainActivity
+            sleep 25
+            adb exec-out screencap -p > phone-screen.png
+            adb logcat -d -b crash > phone-crash.txt
+            adb logcat -d > phone-logcat.txt
+            (adb shell pidof com.ihoru.trackwatch && echo RUNNING) > phone-status.txt || echo "NOT RUNNING" > phone-status.txt
+            cat phone-status.txt
+            cat phone-crash.txt
+            grep -E "AndroidRuntime|flutter|trackwatch|FATAL" phone-logcat.txt | tail -150 || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-test
+          path: |
+            phone-screen.png
+            phone-crash.txt
+            phone-logcat.txt
+            phone-status.txt
+
+      - name: Fail on crash
+        run: |
+          if [ -s phone-crash.txt ] || grep -q "NOT RUNNING" phone-status.txt; then
+            echo "The phone app crashed or is not running"; exit 1
+          fi
