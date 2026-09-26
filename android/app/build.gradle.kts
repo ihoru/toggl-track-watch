@@ -70,6 +70,7 @@ android {
         }
         getByName("release") {
             signingConfig = key
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 

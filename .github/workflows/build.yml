@@ -68,10 +68,18 @@ jobs:
             build/app/outputs/flutter-apk/app-phone-release.apk
             build/app/outputs/flutter-apk/app-wear-release.apk
 
-  # Launches the phone APK in an emulator and captures crashes, logs and a screenshot.
+  # Launches each APK in an emulator and captures crashes, logs and a screenshot.
   smoke-test:
     needs: build
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: phone
+            target: google_apis
+          - name: wear
+            target: android-wear
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -83,38 +91,38 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Launch phone app in emulator
+      - name: Launch ${{ matrix.name }} app in emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
-          target: google_apis
+          api-level: 33
+          target: ${{ matrix.target }}
           arch: x86_64
           disable-animations: true
           script: |
-            adb install -r app-phone-release.apk
+            adb install -r app-${{ matrix.name }}-release.apk
             adb logcat -c
             adb shell am start -W -n com.ihoru.trackwatch/.MainActivity
             sleep 25
-            adb exec-out screencap -p > phone-screen.png
-            adb logcat -d -b crash > phone-crash.txt
-            adb logcat -d > phone-logcat.txt
-            (adb shell pidof com.ihoru.trackwatch && echo RUNNING) > phone-status.txt || echo "NOT RUNNING" > phone-status.txt
-            cat phone-status.txt
-            cat phone-crash.txt
-            grep -E "AndroidRuntime|flutter|trackwatch|FATAL" phone-logcat.txt | tail -150 || true
+            adb exec-out screencap -p > screen.png
+            adb logcat -d -b crash > crash.txt
+            adb logcat -d > logcat.txt
+            (adb shell pidof com.ihoru.trackwatch && echo RUNNING) > status.txt || echo "NOT RUNNING" > status.txt
+            cat status.txt
+            cat crash.txt
+            grep -E "AndroidRuntime|flutter|trackwatch|FATAL" logcat.txt | tail -150 || true
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: smoke-test
+          name: smoke-test-${{ matrix.name }}
           path: |
-            phone-screen.png
-            phone-crash.txt
-            phone-logcat.txt
-            phone-status.txt
+            screen.png
+            crash.txt
+            logcat.txt
+            status.txt
 
       - name: Fail on crash
         run: |
-          if [ -s phone-crash.txt ] || grep -q "NOT RUNNING" phone-status.txt; then
-            echo "The phone app crashed or is not running"; exit 1
+          if [ -s crash.txt ] || grep -q "NOT RUNNING" status.txt; then
+            echo "The ${{ matrix.name }} app crashed or is not running"; exit 1
           fi
