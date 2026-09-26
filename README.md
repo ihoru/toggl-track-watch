@@ -32,7 +32,7 @@ android/app/src/
 ```
 
 One Flutter project builds two APKs using the `phone` and `wear` flavors. Both use the same
-application id (`com.ihoru.trackwatch`), which the Wearable Data Layer requires.
+application id (`su.iho.trackwatch`), which the Wearable Data Layer requires.
 
 ## Build
 

@@ -1,4 +1,4 @@
-package com.ihoru.trackwatch
+package su.iho.trackwatch
 
 import android.content.Context
 import android.net.Uri
@@ -6,10 +6,10 @@ import com.google.android.gms.wearable.DataItem
 import com.google.android.gms.wearable.DataMapItem
 import com.google.android.gms.wearable.PutDataRequest
 import com.google.android.gms.wearable.Wearable
-import com.ihoru.trackwatch.shared.Command
-import com.ihoru.trackwatch.shared.CommandType
-import com.ihoru.trackwatch.shared.LOCAL_ID_PREFIX
-import com.ihoru.trackwatch.shared.Paths
+import su.iho.trackwatch.shared.Command
+import su.iho.trackwatch.shared.CommandType
+import su.iho.trackwatch.shared.LOCAL_ID_PREFIX
+import su.iho.trackwatch.shared.Paths
 import kotlinx.coroutines.tasks.await
 import org.json.JSONObject
 import java.io.IOException

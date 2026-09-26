@@ -1,10 +1,10 @@
-package com.ihoru.trackwatch
+package su.iho.trackwatch
 
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.WearableListenerService
-import com.ihoru.trackwatch.shared.Paths
-import com.ihoru.trackwatch.shared.ViewState
+import su.iho.trackwatch.shared.Paths
+import su.iho.trackwatch.shared.ViewState
 
 /** Receives the state published by the phone, even when the watch app is closed. */
 class WatchListenerService : WearableListenerService() {

@@ -1,4 +1,4 @@
-package com.ihoru.trackwatch
+package su.iho.trackwatch
 
 import android.content.Context
 import androidx.work.BackoffPolicy

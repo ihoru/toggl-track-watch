@@ -8,7 +8,7 @@ calls are made by the phone.**
 
 | Topic | Decision |
 |---|---|
-| Platforms | Android phone + Wear OS watch. One Flutter project, two flavors (`phone`, `wear`), same `applicationId` (`com.ihoru.trackwatch`) and signing key — required by the Wearable Data Layer. |
+| Platforms | Android phone + Wear OS watch. One Flutter project, two flavors (`phone`, `wear`), same `applicationId` (`su.iho.trackwatch`) and signing key — required by the Wearable Data Layer. |
 | UI | Flutter on both devices, dark theme, Toggl project colors. |
 | Native layer | Kotlin: Toggl API client, persistent queue, background sync, Data Layer, tile, complication, ongoing activity. |
 | Auth | Paste Toggl API token on the phone. Stored encrypted (Android Keystore). Never sent to the watch. |

@@ -1,4 +1,4 @@
-package com.ihoru.trackwatch
+package su.iho.trackwatch
 
 import android.Manifest
 import android.app.NotificationChannel
@@ -15,7 +15,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.wear.ongoing.OngoingActivity
 import androidx.wear.ongoing.Status
-import com.ihoru.trackwatch.shared.ViewState
+import su.iho.trackwatch.shared.ViewState
 
 /** Shows an Ongoing Activity (watch-face icon + notification with Stop) while a timer runs. */
 object OngoingTimer {

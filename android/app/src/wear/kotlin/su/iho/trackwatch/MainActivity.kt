@@ -1,4 +1,4 @@
-package com.ihoru.trackwatch
+package su.iho.trackwatch
 
 import android.Manifest
 import android.app.RemoteInput
@@ -11,7 +11,7 @@ import android.view.ViewConfiguration
 import androidx.core.view.InputDeviceCompat
 import androidx.core.view.ViewConfigurationCompat
 import androidx.wear.input.RemoteInputIntentHelper
-import com.ihoru.trackwatch.shared.ViewState
+import su.iho.trackwatch.shared.ViewState
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel

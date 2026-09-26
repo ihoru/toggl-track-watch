@@ -1,4 +1,4 @@
-package com.ihoru.trackwatch
+package su.iho.trackwatch
 
 import android.content.Context
 import androidx.core.graphics.ColorUtils
@@ -22,8 +22,8 @@ import androidx.wear.tiles.TileBuilders
 import androidx.wear.tiles.TileService
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
-import com.ihoru.trackwatch.shared.Favorite
-import com.ihoru.trackwatch.shared.ViewState
+import su.iho.trackwatch.shared.Favorite
+import su.iho.trackwatch.shared.ViewState
 import java.text.DateFormat
 import java.util.Date
 

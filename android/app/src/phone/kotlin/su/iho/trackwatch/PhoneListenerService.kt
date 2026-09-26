@@ -1,10 +1,10 @@
-package com.ihoru.trackwatch
+package su.iho.trackwatch
 
 import com.google.android.gms.wearable.DataEvent
 import com.google.android.gms.wearable.DataEventBuffer
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
-import com.ihoru.trackwatch.shared.Paths
+import su.iho.trackwatch.shared.Paths
 
 /** Receives commands and refresh requests from the watch, even when the app is closed. */
 class PhoneListenerService : WearableListenerService() {

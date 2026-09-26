@@ -103,12 +103,12 @@ jobs:
           script: |
             adb install -r app-${{ matrix.name }}-release.apk
             adb logcat -c
-            adb shell am start -W -n com.ihoru.trackwatch/.MainActivity
+            adb shell am start -W -n su.iho.trackwatch/.MainActivity
             sleep 25
             adb exec-out screencap -p > screen.png
             adb logcat -d -b crash > crash.txt
             adb logcat -d > logcat.txt
-            (adb shell pidof com.ihoru.trackwatch && echo RUNNING) > status.txt || echo "NOT RUNNING" > status.txt
+            (adb shell pidof su.iho.trackwatch && echo RUNNING) > status.txt || echo "NOT RUNNING" > status.txt
             cat status.txt
             cat crash.txt
             grep -E "AndroidRuntime|flutter|trackwatch|FATAL" logcat.txt | tail -150 || true

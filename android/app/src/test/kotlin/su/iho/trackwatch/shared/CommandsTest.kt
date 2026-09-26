@@ -1,4 +1,4 @@
-package com.ihoru.trackwatch.shared
+package su.iho.trackwatch.shared
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

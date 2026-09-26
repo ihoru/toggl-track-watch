@@ -1,4 +1,4 @@
-package com.ihoru.trackwatch
+package su.iho.trackwatch
 
 import android.app.PendingIntent
 import android.content.Intent
@@ -13,7 +13,7 @@ import androidx.wear.watchface.complications.data.TimeDifferenceComplicationText
 import androidx.wear.watchface.complications.data.TimeDifferenceStyle
 import androidx.wear.watchface.complications.datasource.ComplicationRequest
 import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
-import com.ihoru.trackwatch.shared.TimeEntry
+import su.iho.trackwatch.shared.TimeEntry
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 

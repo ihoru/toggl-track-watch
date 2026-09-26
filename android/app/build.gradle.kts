@@ -23,7 +23,7 @@ val signing = Properties().apply {
 val hasSharedKey = signing.getProperty("storeFile") != null
 
 android {
-    namespace = "com.ihoru.trackwatch"
+    namespace = "su.iho.trackwatch"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -34,7 +34,7 @@ android {
 
     defaultConfig {
         // Phone and watch apps must share the application id for the Data Layer.
-        applicationId = "com.ihoru.trackwatch"
+        applicationId = "su.iho.trackwatch"
         minSdk = 31
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

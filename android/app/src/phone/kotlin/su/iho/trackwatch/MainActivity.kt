@@ -1,9 +1,9 @@
-package com.ihoru.trackwatch
+package su.iho.trackwatch
 
 import com.google.android.gms.wearable.Wearable
-import com.ihoru.trackwatch.shared.Favorite
-import com.ihoru.trackwatch.shared.ViewState
-import com.ihoru.trackwatch.shared.objects
+import su.iho.trackwatch.shared.Favorite
+import su.iho.trackwatch.shared.ViewState
+import su.iho.trackwatch.shared.objects
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel

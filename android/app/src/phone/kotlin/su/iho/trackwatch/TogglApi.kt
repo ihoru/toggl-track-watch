@@ -1,9 +1,9 @@
-package com.ihoru.trackwatch
+package su.iho.trackwatch
 
-import com.ihoru.trackwatch.shared.Project
-import com.ihoru.trackwatch.shared.TimeEntry
-import com.ihoru.trackwatch.shared.objects
-import com.ihoru.trackwatch.shared.optLongOrNull
+import su.iho.trackwatch.shared.Project
+import su.iho.trackwatch.shared.TimeEntry
+import su.iho.trackwatch.shared.objects
+import su.iho.trackwatch.shared.optLongOrNull
 import okhttp3.Credentials
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient

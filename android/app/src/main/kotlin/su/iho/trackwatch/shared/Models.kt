@@ -1,4 +1,4 @@
-package com.ihoru.trackwatch.shared
+package su.iho.trackwatch.shared
 
 import org.json.JSONArray
 import org.json.JSONObject
