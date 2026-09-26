@@ -1,0 +1,57 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-feature android:name="android.hardware.type.watch"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+
+    <application>
+        <!-- The watch app needs the phone app: all Toggl calls go through it. -->
+        <meta-data
+            android:name="com.google.android.wearable.standalone"
+            android:value="false"/>
+
+        <service
+            android:name=".WatchListenerService"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.DATA_CHANGED"/>
+                <data android:scheme="wear" android:host="*" android:path="/state"/>
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".TimerTileService"
+            android:exported="true"
+            android:label="Track Watch"
+            android:description="@string/tile_description"
+            android:icon="@drawable/ic_timer"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter>
+                <action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER"/>
+            </intent-filter>
+            <meta-data
+                android:name="androidx.wear.tiles.PREVIEW"
+                android:resource="@drawable/ic_timer"/>
+        </service>
+
+        <service
+            android:name=".TimerComplicationService"
+            android:exported="true"
+            android:label="Toggl timer"
+            android:icon="@drawable/ic_timer"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter>
+                <action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT"/>
+            <meta-data
+                android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="0"/>
+        </service>
+
+        <receiver
+            android:name=".StopTimerReceiver"
+            android:exported="false"/>
+    </application>
+</manifest>
