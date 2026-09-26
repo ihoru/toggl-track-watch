@@ -34,7 +34,7 @@ class SyncEngine(private val context: Context) {
         val now = System.currentTimeMillis()
         if (store.rateLimitedUntil > now) return SyncOutcome.RetryAt(store.rateLimitedUntil)
 
-        val api = TogglApi(token)
+        val api = TogglApi(token, store::setQuota)
         var dropped: String? = null
         try {
             while (true) {

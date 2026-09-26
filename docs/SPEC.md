@@ -66,6 +66,8 @@ calls are made by the phone.**
 * `PATCH /workspaces/{wid}/time_entries/{id}/stop`
 * `DELETE /workspaces/{wid}/time_entries/{id}`
 
+Every response's `X-Toggl-Quota-Remaining` / `X-Toggl-Quota-Resets-In` headers are saved and shown on the phone (Sync card) and the watch (Refresh chip).
+
 Quota handling: `402` → wait `X-Toggl-Quota-Resets-In` seconds (default 15 min);
 `429` → short backoff; `5xx`/network → WorkManager exponential backoff;
 `401/403` → pause and show "invalid token" on the phone; other `4xx` → drop

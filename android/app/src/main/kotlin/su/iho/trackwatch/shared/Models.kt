@@ -111,6 +111,10 @@ data class ViewState(
     val lastSync: Long? = null,
     val error: String? = null,
     val rateLimitedUntil: Long? = null,
+    /** Toggl API requests left in the current quota window, as last reported by Toggl. */
+    val quotaRemaining: Int? = null,
+    /** When the current quota window resets (epoch ms). */
+    val quotaResetsAt: Long? = null,
     val phoneReachable: Boolean = true,
 ) {
     val running: TimeEntry? get() = entries.firstOrNull { it.isRunning }
@@ -128,6 +132,8 @@ data class ViewState(
         .put("lastSync", lastSync ?: JSONObject.NULL)
         .put("error", error ?: JSONObject.NULL)
         .put("rateLimitedUntil", rateLimitedUntil ?: JSONObject.NULL)
+        .put("quotaRemaining", quotaRemaining ?: JSONObject.NULL)
+        .put("quotaResetsAt", quotaResetsAt ?: JSONObject.NULL)
         .put("phoneReachable", phoneReachable)
 
     fun toBytes(): ByteArray = gzip(toJson().toString())
@@ -144,6 +150,8 @@ data class ViewState(
             lastSync = o.optLongOrNull("lastSync"),
             error = if (o.isNull("error")) null else o.optString("error"),
             rateLimitedUntil = o.optLongOrNull("rateLimitedUntil"),
+            quotaRemaining = o.optLongOrNull("quotaRemaining")?.toInt(),
+            quotaResetsAt = o.optLongOrNull("quotaResetsAt"),
             phoneReachable = o.optBoolean("phoneReachable", true),
         )
 

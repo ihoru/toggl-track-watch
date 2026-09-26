@@ -87,6 +87,8 @@ class ViewState {
     this.lastSync,
     this.error,
     this.rateLimitedUntil,
+    this.quotaRemaining,
+    this.quotaResetsAt,
     this.phoneReachable = true,
   });
 
@@ -100,9 +102,34 @@ class ViewState {
   final DateTime? lastSync;
   final String? error;
   final DateTime? rateLimitedUntil;
+
+  /// Toggl API requests left in the current quota window, as last reported by Toggl.
+  final int? quotaRemaining;
+  final DateTime? quotaResetsAt;
   final bool phoneReachable;
 
   static const empty = ViewState();
+
+  /// Requests left in the current quota window, or null when unknown or the window has already reset.
+  int? quotaLeft([DateTime? now]) {
+    final resetsAt = quotaResetsAt;
+    if (quotaRemaining == null || resetsAt == null || !resetsAt.isAfter(now ?? DateTime.now())) return null;
+    return quotaRemaining;
+  }
+
+  ViewState copyWith({List<Favorite>? favorites}) => ViewState(
+    configured: configured,
+    entries: entries,
+    projects: projects,
+    favorites: favorites ?? this.favorites,
+    pendingCount: pendingCount,
+    lastSync: lastSync,
+    error: error,
+    rateLimitedUntil: rateLimitedUntil,
+    quotaRemaining: quotaRemaining,
+    quotaResetsAt: quotaResetsAt,
+    phoneReachable: phoneReachable,
+  );
 
   TimeEntry? get running {
     for (final e in entries) {
@@ -161,6 +188,8 @@ class ViewState {
       lastSync: time('lastSync'),
       error: json['error'] as String?,
       rateLimitedUntil: time('rateLimitedUntil'),
+      quotaRemaining: (json['quotaRemaining'] as num?)?.toInt(),
+      quotaResetsAt: time('quotaResetsAt'),
       phoneReachable: json['phoneReachable'] as bool? ?? true,
     );
   }

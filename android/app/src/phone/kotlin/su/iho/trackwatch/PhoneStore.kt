@@ -157,6 +157,12 @@ class PhoneStore private constructor(private val context: Context) {
         prefs.edit().putBoolean(K_REFRESH_REQUESTED, true).apply()
     }
 
+    /** Saves the latest quota headers; published with the next state change. */
+    @Synchronized
+    fun setQuota(remaining: Int, resetsAt: Long) {
+        prefs.edit().putInt(K_QUOTA_REMAINING, remaining).putLong(K_QUOTA_RESETS_AT, resetsAt).apply()
+    }
+
     @Synchronized
     fun setStatus(error: String?, rateLimitedUntil: Long = 0, synced: Boolean = false) {
         val edit = prefs.edit().putString(K_ERROR, error).putLong(K_RATE_LIMITED_UNTIL, rateLimitedUntil)
@@ -180,6 +186,8 @@ class PhoneStore private constructor(private val context: Context) {
             lastSync = prefs.getLong(K_LAST_SYNC, 0).takeIf { it > 0 },
             error = prefs.getString(K_ERROR, null),
             rateLimitedUntil = rateLimitedUntil.takeIf { it > System.currentTimeMillis() },
+            quotaRemaining = prefs.getInt(K_QUOTA_REMAINING, -1).takeIf { it >= 0 },
+            quotaResetsAt = prefs.getLong(K_QUOTA_RESETS_AT, 0).takeIf { it > 0 },
         )
     }
 
@@ -221,6 +229,8 @@ class PhoneStore private constructor(private val context: Context) {
         private const val K_REFRESH_REQUESTED = "refreshRequested"
         private const val K_ERROR = "error"
         private const val K_RATE_LIMITED_UNTIL = "rateLimitedUntil"
+        private const val K_QUOTA_REMAINING = "quotaRemaining"
+        private const val K_QUOTA_RESETS_AT = "quotaResetsAt"
         private const val MAX_ACKS = 200
         private const val MAX_IDS = 100
 

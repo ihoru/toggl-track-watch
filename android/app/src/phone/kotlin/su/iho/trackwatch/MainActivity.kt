@@ -36,8 +36,11 @@ class MainActivity : FlutterActivity() {
                     val token = call.argument<String>("token")?.trim().orEmpty()
                     scope.launch {
                         try {
-                            val account = withContext(Dispatchers.IO) { TogglApi(token).account() }
+                            var quota: Pair<Int, Long>? = null
+                            val api = TogglApi(token) { remaining, resetsAt -> quota = remaining to resetsAt }
+                            val account = withContext(Dispatchers.IO) { api.account() }
                             store.signIn(token, account)
+                            quota?.let { (remaining, resetsAt) -> store.setQuota(remaining, resetsAt) }
                             Sync.schedulePeriodic(this@MainActivity)
                             Sync.now(this@MainActivity, refresh = true)
                             result.success(stateJson(store.viewState()))

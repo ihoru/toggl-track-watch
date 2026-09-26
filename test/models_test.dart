@@ -39,6 +39,18 @@ void main() {
     expect(state.lastSync, DateTime.fromMillisecondsSinceEpoch(42));
   });
 
+  test('quota is only reported while its window is open', () {
+    final now = DateTime(2026, 9, 26, 12);
+    final state = ViewState.fromJson({
+      'quotaRemaining': 27,
+      'quotaResetsAt': now.add(const Duration(minutes: 20)).millisecondsSinceEpoch,
+    });
+    expect(state.quotaRemaining, 27);
+    expect(state.quotaLeft(now), 27);
+    expect(state.quotaLeft(now.add(const Duration(minutes: 21))), isNull);
+    expect(const ViewState().quotaLeft(now), isNull);
+  });
+
   test('recents are distinct and newest first', () {
     final recents = sampleState().recents();
     expect(recents, const [

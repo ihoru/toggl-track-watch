@@ -77,20 +77,9 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
   }
 
   Future<void> _saveFavorites(List<Favorite> favorites) async {
-    setState(() => _snapshot = PhoneSnapshot(_copyWithFavorites(_snapshot.state, favorites), _snapshot.account));
+    setState(() => _snapshot = PhoneSnapshot(_snapshot.state.copyWith(favorites: favorites), _snapshot.account));
     await _bridge.setFavorites(favorites);
   }
-
-  ViewState _copyWithFavorites(ViewState s, List<Favorite> favorites) => ViewState(
-    configured: s.configured,
-    entries: s.entries,
-    projects: s.projects,
-    favorites: favorites,
-    pendingCount: s.pendingCount,
-    lastSync: s.lastSync,
-    error: s.error,
-    rateLimitedUntil: s.rateLimitedUntil,
-  );
 
   @override
   Widget build(BuildContext context) {
@@ -256,6 +245,7 @@ class _StatusCard extends StatelessWidget {
               state.pendingCount == 0 ? 'Nothing waiting to sync' : '${state.pendingCount} change(s) waiting to sync',
             ),
             _line(Icons.history, state.lastSync == null ? 'Never synced' : 'Last sync ${relativeAgo(state.lastSync!)}'),
+            if (quotaText(context, state) case final text?) _line(Icons.speed, text),
             if (rateLimited != null)
               _line(
                 Icons.hourglass_top,

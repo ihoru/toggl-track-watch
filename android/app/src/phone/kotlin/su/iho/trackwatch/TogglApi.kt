@@ -20,8 +20,11 @@ class TogglException(val code: Int, message: String, val retryAfterSeconds: Long
 
 data class Account(val name: String, val email: String, val workspaceId: Long, val workspaceName: String)
 
-/** Minimal Toggl Track API v9 client. All calls are blocking; call them off the main thread. */
-class TogglApi(private val token: String) {
+/**
+ * Minimal Toggl Track API v9 client. All calls are blocking; call them off the main thread.
+ * [onQuota] receives the quota headers of every response: requests left and when the window resets (epoch ms).
+ */
+class TogglApi(private val token: String, private val onQuota: (remaining: Int, resetsAt: Long) -> Unit = { _, _ -> }) {
     private val base = "https://api.track.toggl.com/api/v9"
 
     fun account(): Account {
@@ -82,6 +85,10 @@ class TogglApi(private val token: String) {
             .method(method, requestBody)
             .build()
         client.newCall(request).execute().use { response ->
+            response.header("X-Toggl-Quota-Remaining")?.toIntOrNull()?.let { remaining ->
+                val resetsIn = response.header("X-Toggl-Quota-Resets-In")?.toLongOrNull() ?: 0
+                onQuota(remaining, System.currentTimeMillis() + resetsIn * 1000)
+            }
             val text = response.body?.string().orEmpty()
             if (response.isSuccessful) return text
             val retryAfter = when (response.code) {

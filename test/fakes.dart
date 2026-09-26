@@ -42,6 +42,8 @@ ViewState sampleState({bool running = true}) => ViewState(
     ),
   ],
   lastSync: now,
+  quotaRemaining: 27,
+  quotaResetsAt: now.add(const Duration(minutes: 30)),
 );
 
 class FakeWatchBridge implements WatchBridge {

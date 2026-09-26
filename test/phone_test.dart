@@ -19,6 +19,7 @@ void main() {
     expect(find.text('Favorites'), findsOneWidget);
     expect(find.text('Deep work'), findsOneWidget);
     expect(find.text('Watch connected'), findsOneWidget);
+    expect(find.textContaining('27 Toggl API requests left'), findsOneWidget);
 
     await tester.tap(find.text('From recent'));
     await tester.pumpAndSettle();

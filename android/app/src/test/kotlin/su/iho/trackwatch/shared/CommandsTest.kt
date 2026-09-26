@@ -65,6 +65,8 @@ class CommandsTest {
             pendingCount = 2,
             lastSync = 42,
             error = "boom",
+            quotaRemaining = 27,
+            quotaResetsAt = 99,
         )
         assertEquals(state, ViewState.fromBytes(state.toBytes()))
     }

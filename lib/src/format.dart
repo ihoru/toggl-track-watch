@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'models.dart';
+
 String _two(int n) => n.toString().padLeft(2, '0');
 
 /// `1:04:05` for timers.
@@ -41,4 +43,17 @@ String relativeAgo(DateTime t, [DateTime? now]) {
   if (d.inMinutes < 60) return '${d.inMinutes} min ago';
   if (d.inHours < 24) return '${d.inHours} h ago';
   return '${d.inDays} d ago';
+}
+
+/// "27 Toggl API requests left · resets at 14:05", or null when Toggl has not reported a quota yet.
+String? quotaText(BuildContext context, ViewState state) {
+  final resetsAt = state.quotaResetsAt;
+  if (state.quotaRemaining == null || resetsAt == null) return null;
+  final left = state.quotaLeft();
+  if (left == null) return 'Toggl API quota refreshed at ${formatTime(context, resetsAt)}';
+  return '$left Toggl API requests left · resets at ${formatTime(context, resetsAt)}';
+}
+
+extension EmptyToNull on String {
+  String? get nullIfEmpty => isEmpty ? null : this;
 }

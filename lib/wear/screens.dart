@@ -74,7 +74,10 @@ class HomeScreen extends StatelessWidget {
         WearChip(
           label: 'Refresh',
           icon: Icons.refresh,
-          secondary: state.lastSync == null ? null : 'Synced ${relativeAgo(state.lastSync!)}',
+          secondary: [
+            if (state.lastSync != null) 'Synced ${relativeAgo(state.lastSync!)}',
+            if (state.quotaLeft() case final left?) '$left API left',
+          ].join(' · ').nullIfEmpty,
           onTap: bridge.refresh,
         ),
       ],
