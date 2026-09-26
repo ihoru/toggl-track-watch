@@ -78,8 +78,10 @@ jobs:
         include:
           - name: phone
             target: google_apis
+            api: 34
           - name: wear
             target: android-wear
+            api: 33
     steps:
       - uses: actions/download-artifact@v4
         with:
@@ -94,7 +96,7 @@ jobs:
       - name: Launch ${{ matrix.name }} app in emulator
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 33
+          api-level: ${{ matrix.api }}
           target: ${{ matrix.target }}
           arch: x86_64
           disable-animations: true
