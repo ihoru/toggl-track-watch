@@ -1,0 +1,7 @@
+<!-- Track Watch app icon ("Elapsed Wedge"). Source of android/app/src/main/res/drawable/ic_launcher_*.xml. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 108 108" width="512" height="512">
+  <rect width="108" height="108" fill="#e57cd8"/>
+  <circle cx="54" cy="54" r="26" fill="none" stroke="#1d1320" stroke-width="6"/>
+  <path d="M54 54 L54 34 A20 20 0 0 1 71.32 64 Z" fill="#1d1320"/>
+  <circle cx="54" cy="54" r="4" fill="#1d1320"/>
+</svg>
