@@ -48,6 +48,7 @@ class MainActivity : FlutterActivity() {
                             quota?.let { (remaining, resetsAt) -> store.setQuota(remaining, resetsAt) }
                             Sync.schedulePeriodic(this@MainActivity)
                             Sync.now(this@MainActivity, refresh = true)
+                            CloudBackup.save(this@MainActivity)
                             result.success(stateJson(store.viewState()))
                         } catch (e: TogglException) {
                             result.error("toggl", if (e.code == 401 || e.code == 403) "Invalid API token" else "Toggl error ${e.code}", null)
@@ -59,13 +60,16 @@ class MainActivity : FlutterActivity() {
                 "signOut" -> {
                     Sync.cancelAll(this)
                     store.signOut()
+                    CloudBackup.save(this)
                     result.success(null)
                 }
                 "setFavorites" -> {
                     val json = call.argument<String>("favorites") ?: "[]"
                     store.setFavorites(JSONArray(json).objects().map(Favorite::fromJson))
+                    CloudBackup.save(this)
                     result.success(null)
                 }
+                "restoreFromCloud" -> scope.launch { result.success(restoreFromCloud()) }
                 "syncNow" -> {
                     Sync.now(this, refresh = true)
                     result.success(null)
@@ -77,7 +81,8 @@ class MainActivity : FlutterActivity() {
                 }
                 "getCompact" -> result.success(uiPrefs.getBoolean("compact", false))
                 "setCompact" -> {
-                    uiPrefs.edit().putBoolean("compact", call.argument<Boolean>("compact") == true).apply()
+                    uiPrefs.edit().putBoolean("compact", call.argument<Boolean>("compact") == true).commit()
+                    CloudBackup.save(this)
                     result.success(null)
                 }
                 "appVersion" -> {
@@ -143,6 +148,28 @@ class MainActivity : FlutterActivity() {
         store.enqueue(CommandFactory.start(store.viewState().entries, description, projectId, System.currentTimeMillis()))
         Sync.now(this)
         return "api"
+    }
+
+    /**
+     * After a reinstall: brings back favorites, the compact setting and, if the saved token still
+     * works, signs in. Returns the new state, or null when there is no backup.
+     */
+    private suspend fun restoreFromCloud(): String? {
+        val backup = runCatching { CloudBackup.load(this) }.getOrNull() ?: return null
+        if (store.favorites.isEmpty() && backup.favorites.isNotEmpty()) store.setFavorites(backup.favorites)
+        if (!uiPrefs.contains("compact")) uiPrefs.edit().putBoolean("compact", backup.compact).apply()
+        val token = backup.token
+        if (store.token == null && token != null) {
+            try {
+                val account = withContext(Dispatchers.IO) { TogglApi(token).account() }
+                store.signIn(token, account)
+                Sync.schedulePeriodic(this)
+                Sync.now(this, refresh = true)
+            } catch (e: Exception) {
+                // Token revoked or no network: the user enters it again.
+            }
+        }
+        return stateJson(store.viewState())
     }
 
     private fun stateJson(state: ViewState): String {

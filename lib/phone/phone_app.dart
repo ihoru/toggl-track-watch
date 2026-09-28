@@ -39,6 +39,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
   bool _compact = false;
   bool? _watchConnected;
   String _version = '';
+  bool _restoreTried = false;
+  bool _restoring = false;
   StreamSubscription<PhoneSnapshot>? _sub;
   Timer? _ticker;
 
@@ -60,7 +62,14 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
   }
 
   Future<void> _load() async {
-    final snapshot = await _bridge.getState();
+    var snapshot = await _bridge.getState();
+    if (!snapshot.state.configured && !_restoreTried) {
+      // First launch after a (re)install: try the settings saved in the Google backup.
+      _restoreTried = true;
+      if (mounted) setState(() => _restoring = true);
+      snapshot = await _bridge.restoreFromCloud() ?? snapshot;
+      if (mounted) setState(() => _restoring = false);
+    }
     final compact = await _bridge.getCompact();
     final connected = await _bridge.watchConnected();
     final version = await _bridge.appVersion();
@@ -120,7 +129,14 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           if (configured) IconButton(tooltip: 'Change token', icon: const Icon(Icons.key), onPressed: _signOut),
         ],
       ),
-      body: !_loaded
+      body: _restoring
+          ? const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [CircularProgressIndicator(), SizedBox(height: 16), Text('Restoring settings from backup…')],
+              ),
+            )
+          : !_loaded
           ? const Center(child: CircularProgressIndicator())
           : !state.configured
           ? TokenSetup(bridge: _bridge, onDone: (s) => setState(() => _snapshot = s))

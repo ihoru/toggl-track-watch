@@ -92,6 +92,13 @@ Then:
 
 ## Notes
 
+* **Settings backup:** the phone app saves the Toggl token, favorites and the compact-view setting in
+  Google Play services **Block Store**. After uninstalling and reinstalling, the app restores them on
+  first launch and signs in automatically. This needs Google backup to be on (Settings → Google →
+  Backup). With a screen lock set, the backup is end-to-end encrypted in the cloud and also reaches a
+  new phone. Restoring requires the same signing key, so use the stable key described under
+  *Signing*. "Change token" removes the token from the backup but keeps favorites.
+
 * Phone favorites list: swipe right to start a favorite, swipe left to delete it (asks first), hold and drag
   to reorder, and switch between the normal and compact view with the icon in the Favorites header.
   Starting opens the official Toggl app through its `toggl://tracker/timeEntry/start?...` link. If no

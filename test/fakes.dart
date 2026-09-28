@@ -140,6 +140,17 @@ class FakePhoneBridge implements PhoneBridge {
   @override
   Future<void> signOut() async {}
 
+  /// What the fake Google backup returns; null means no backup.
+  PhoneSnapshot? backup;
+  int restoreCalls = 0;
+
+  @override
+  Future<PhoneSnapshot?> restoreFromCloud() async {
+    restoreCalls++;
+    if (backup != null) snapshot = backup!;
+    return backup;
+  }
+
   @override
   Future<void> setFavorites(List<Favorite> favorites) async => savedFavorites = favorites;
 

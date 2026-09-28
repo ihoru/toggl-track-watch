@@ -44,6 +44,10 @@ abstract class PhoneBridge {
   /// Validates the token with Toggl and stores it. Throws [PlatformException] with a readable message.
   Future<PhoneSnapshot> setToken(String token);
   Future<void> signOut();
+
+  /// After a reinstall, restores token, favorites and settings from the Google backup.
+  /// Returns null when there is no backup.
+  Future<PhoneSnapshot?> restoreFromCloud();
   Future<void> setFavorites(List<Favorite> favorites);
   Future<void> syncNow();
   Future<bool> watchConnected();
@@ -80,6 +84,12 @@ class ChannelPhoneBridge implements PhoneBridge {
 
   @override
   Future<void> signOut() => _methods.invokeMethod('signOut');
+
+  @override
+  Future<PhoneSnapshot?> restoreFromCloud() async {
+    final json = await _methods.invokeMethod<String>('restoreFromCloud');
+    return json == null ? null : PhoneSnapshot.decode(json);
+  }
 
   @override
   Future<void> setFavorites(List<Favorite> favorites) =>

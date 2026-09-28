@@ -122,4 +122,35 @@ void main() {
     expect(find.textContaining('Deep work  ·  Client A', findRichText: true), findsOneWidget);
     expect(find.byTooltip('Comfortable view'), findsOneWidget);
   });
+
+  testWidgets('restores token and favorites from the backup after a reinstall', (tester) async {
+    final bridge = FakePhoneBridge(PhoneSnapshot.empty)..backup = signedIn();
+    await tester.pumpWidget(PhoneApp(bridge: bridge));
+    await tester.pumpAndSettle();
+
+    expect(bridge.restoreCalls, 1);
+    expect(find.text('Ihor · WS'), findsOneWidget);
+    expect(find.text('Deep work'), findsOneWidget);
+    expect(find.text('Connect Toggl Track'), findsNothing);
+  });
+
+  testWidgets('without a backup it asks for the token, and only tries once', (tester) async {
+    final bridge = FakePhoneBridge(PhoneSnapshot.empty);
+    await tester.pumpWidget(PhoneApp(bridge: bridge));
+    await tester.pumpAndSettle();
+    expect(find.text('Connect Toggl Track'), findsOneWidget);
+
+    for (final state in [
+      AppLifecycleState.inactive,
+      AppLifecycleState.hidden,
+      AppLifecycleState.paused,
+      AppLifecycleState.hidden,
+      AppLifecycleState.inactive,
+      AppLifecycleState.resumed,
+    ]) {
+      tester.binding.handleAppLifecycleStateChanged(state);
+    }
+    await tester.pumpAndSettle();
+    expect(bridge.restoreCalls, 1);
+  });
 }

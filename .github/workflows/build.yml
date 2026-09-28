@@ -57,6 +57,14 @@ jobs:
       - name: Build watch APK
         run: flutter build apk --release --flavor wear -t lib/main_wear.dart
 
+      - name: Check both APKs have the same signature
+        run: |
+          APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner"
+          for f in phone wear; do
+            "$APKSIGNER" verify --print-certs "build/app/outputs/flutter-apk/app-$f-release.apk" | grep 'SHA-256' | tee "sig-$f.txt"
+          done
+          diff sig-phone.txt sig-wear.txt
+
       - name: Kotlin unit tests
         working-directory: android
         run: ./gradlew --no-daemon :app:testPhoneDebugUnitTest
