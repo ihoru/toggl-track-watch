@@ -45,6 +45,25 @@ class _HomePagerState extends State<HomePager> {
     }
   }
 
+  /// How far the user has dragged past the first page; far enough closes the app.
+  double _pull = 0;
+
+  /// Swiping right on the first page closes the app, like the system swipe-to-dismiss
+  /// (which is turned off so that swipes work inside the app).
+  bool _onScroll(ScrollNotification n) {
+    if (n.depth != 0 || n.metrics.axis != Axis.horizontal) return false;
+    if (n is OverscrollNotification && _page == 0 && n.overscroll < 0) {
+      _pull -= n.overscroll;
+      if (_pull > MediaQuery.sizeOf(context).width * 0.2) {
+        _pull = 0;
+        SystemNavigator.pop();
+      }
+    } else if (n is ScrollEndNotification) {
+      _pull = 0;
+    }
+    return false;
+  }
+
   void _showNow() {
     final controller = _controller;
     if (controller == null || !controller.hasClients) return;
@@ -84,19 +103,22 @@ class _HomePagerState extends State<HomePager> {
     final bottom = MediaQuery.sizeOf(context).height * 0.05;
     return Stack(
       children: [
-        PageView(
-          controller: controller,
-          onPageChanged: (page) {
-            setState(() => _page = page);
-            model.savePage(page);
-          },
-          children: [
-            NowPage(active: _page == 0),
-            FavoritesPage(active: _page == 1),
-            FrequentPage(active: _page == 2),
-            HistoryPage(active: _page == 3),
-            SyncPage(active: _page == 4),
-          ],
+        NotificationListener<ScrollNotification>(
+          onNotification: _onScroll,
+          child: PageView(
+            controller: controller,
+            onPageChanged: (page) {
+              setState(() => _page = page);
+              model.savePage(page);
+            },
+            children: [
+              NowPage(active: _page == 0),
+              FavoritesPage(active: _page == 1),
+              FrequentPage(active: _page == 2),
+              HistoryPage(active: _page == 3),
+              SyncPage(active: _page == 4),
+            ],
+          ),
         ),
         Positioned(
           left: 0,

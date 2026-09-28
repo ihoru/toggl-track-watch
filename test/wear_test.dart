@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trackwatch/src/models.dart';
 import 'package:trackwatch/wear/wear_app.dart';
@@ -170,5 +171,26 @@ void main() {
     await tester.pump();
     await tester.pump();
     expect(find.text('Stop'), findsOneWidget);
+  });
+
+  testWidgets('swiping right on the first page closes the app', (tester) async {
+    final platformCalls = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      platformCalls.add(call.method);
+      return null;
+    });
+    addTearDown(() => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
+    await pumpWatch(tester, FakeWatchBridge(sampleState()));
+
+    // Right swipe on another page just goes back one page.
+    await nextPage(tester);
+    await tester.fling(find.byType(PageView), const Offset(200, 0), 1000);
+    await settle(tester);
+    expect(platformCalls, isNot(contains('SystemNavigator.pop')));
+
+    // On the first page it closes the app.
+    await tester.fling(find.byType(PageView), const Offset(200, 0), 1000);
+    await settle(tester);
+    expect(platformCalls, contains('SystemNavigator.pop'));
   });
 }
