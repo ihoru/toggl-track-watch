@@ -109,6 +109,8 @@ jobs:
             adb logcat -d -b crash > crash.txt
             adb logcat -d > logcat.txt
             (adb shell pidof su.iho.trackwatch && echo RUNNING) > status.txt || echo "NOT RUNNING" > status.txt
+            adb shell dumpsys window windows | grep -A40 "su.iho.trackwatch/su.iho.trackwatch.MainActivity" | grep -o "KEEP_SCREEN_ON" | head -1 > screen-flags.txt || true
+            echo "Keep-screen-on flags: $(cat screen-flags.txt)"
             cat status.txt
             cat crash.txt
             grep -E "AndroidRuntime|flutter|trackwatch|FATAL" logcat.txt | tail -150 || true
@@ -122,9 +124,13 @@ jobs:
             crash.txt
             logcat.txt
             status.txt
+            screen-flags.txt
 
       - name: Fail on crash
         run: |
           if [ -s crash.txt ] || grep -q "NOT RUNNING" status.txt; then
             echo "The ${{ matrix.name }} app crashed or is not running"; exit 1
+          fi
+          if [ -s screen-flags.txt ]; then
+            echo "The ${{ matrix.name }} app keeps the screen on"; exit 1
           fi

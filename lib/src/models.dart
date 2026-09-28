@@ -35,6 +35,23 @@ class Favorite {
   int get hashCode => Object.hash(description, projectId);
 }
 
+/// A (description, project) pair and how often it was tracked in the last 30 days.
+class Frequent {
+  const Frequent({required this.description, this.projectId, required this.count});
+
+  final String description;
+  final int? projectId;
+  final int count;
+
+  Favorite get asFavorite => Favorite(description: description, projectId: projectId);
+
+  factory Frequent.fromJson(Map<String, dynamic> json) => Frequent(
+    description: json['description'] as String? ?? '',
+    projectId: (json['projectId'] as num?)?.toInt(),
+    count: (json['count'] as num?)?.toInt() ?? 0,
+  );
+}
+
 class TimeEntry {
   const TimeEntry({
     required this.id,
@@ -83,6 +100,7 @@ class ViewState {
     this.entries = const [],
     this.projects = const [],
     this.favorites = const [],
+    this.frequent = const [],
     this.pendingCount = 0,
     this.lastSync,
     this.error,
@@ -98,6 +116,9 @@ class ViewState {
   final List<TimeEntry> entries;
   final List<Project> projects;
   final List<Favorite> favorites;
+
+  /// Most-tracked timers of the last 30 days, most frequent first.
+  final List<Frequent> frequent;
   final int pendingCount;
   final DateTime? lastSync;
   final String? error;
@@ -122,6 +143,7 @@ class ViewState {
     entries: entries,
     projects: projects,
     favorites: favorites ?? this.favorites,
+    frequent: frequent,
     pendingCount: pendingCount,
     lastSync: lastSync,
     error: error,
@@ -184,6 +206,7 @@ class ViewState {
       entries: list('entries').map(TimeEntry.fromJson).toList(),
       projects: list('projects').map(Project.fromJson).toList(),
       favorites: list('favorites').map(Favorite.fromJson).toList(),
+      frequent: list('frequent').map(Frequent.fromJson).toList(),
       pendingCount: (json['pendingCount'] as num?)?.toInt() ?? 0,
       lastSync: time('lastSync'),
       error: json['error'] as String?,

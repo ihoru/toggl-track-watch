@@ -11,6 +11,16 @@
     </queries>
 
     <application>
+        <!-- "Open on phone" from the watch launches the app through trackwatch://open. -->
+        <activity android:name=".MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="trackwatch" android:host="open"/>
+            </intent-filter>
+        </activity>
+
         <!-- Receives commands and refresh requests from the watch. -->
         <service
             android:name=".PhoneListenerService"

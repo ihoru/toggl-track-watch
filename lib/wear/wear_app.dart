@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../src/theme.dart';
 import 'screens.dart';
 import 'watch_bridge.dart';
+import 'widgets.dart';
 
 class WearApp extends StatefulWidget {
   const WearApp({super.key, required this.bridge});
@@ -30,7 +31,21 @@ class _WearAppState extends State<WearApp> {
         title: 'Track Watch',
         theme: darkTheme(watch: true),
         debugShowCheckedModeBanner: false,
-        home: const HomeScreen(),
+        // In ambient mode the regular UI stays mounted (keeping pages and scroll
+        // positions) but hidden and paused behind the low-power view.
+        builder: (context, child) => ListenableBuilder(
+          listenable: _model,
+          builder: (context, _) => Stack(
+            children: [
+              TickerMode(
+                enabled: !_model.ambient,
+                child: Offstage(offstage: _model.ambient, child: child),
+              ),
+              if (_model.ambient) Positioned.fill(child: AmbientView(state: _model.state)),
+            ],
+          ),
+        ),
+        home: const HomePager(),
       ),
     );
   }

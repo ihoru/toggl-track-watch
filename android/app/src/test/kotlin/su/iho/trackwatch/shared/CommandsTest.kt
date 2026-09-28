@@ -55,12 +55,32 @@ class CommandsTest {
     }
 
     @Test
+    fun frequencyRanksByCountThenRecency() {
+        fun e(id: Int, d: String, p: Long?, start: Long) = TimeEntry(id.toString(), d, p, start, start + 1)
+        val entries = listOf(
+            e(1, "Email", null, 100),
+            e(2, "Coding", 1, 200),
+            e(3, "Coding ", 1, 300),
+            e(4, "Email", null, 400),
+            e(5, "Review", 2, 500),
+            e(6, "", null, 600),
+            e(7, "Coding", 2, 700),
+        )
+        assertEquals(
+            listOf(Frequent("Email", null, 2), Frequent("Coding", 1, 2), Frequent("Coding", 2, 1), Frequent("Review", 2, 1)),
+            Frequency.rank(entries),
+        )
+        assertEquals(1, Frequency.rank(entries, limit = 1).size)
+    }
+
+    @Test
     fun viewStateRoundTrip() {
         val state = ViewState(
             configured = true,
             entries = listOf(done, running),
             projects = listOf(Project(10, "P", "#ff0000")),
             favorites = listOf(Favorite("fav", 10), Favorite("nofav", null)),
+            frequent = listOf(Frequent("fav", 10, 3)),
             acks = listOf("a"),
             pendingCount = 2,
             lastSync = 42,

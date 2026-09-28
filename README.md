@@ -3,11 +3,14 @@
 A Toggl Track client for Wear OS, with a companion Android phone app. Built with Flutter for the UI
 and Kotlin for the background parts.
 
-* **Watch:** start and stop timers, start favorites and recent entries with one tap, start a new
-  timer (description by voice or keyboard, project from a list), browse the last 7 days of history
-  with daily totals, and continue, edit (description and project) or delete entries. Also includes
-  a **tile**, a **short-text complication** showing elapsed time, and an **Ongoing Activity** icon
-  on the watch face while a timer runs.
+* **Watch:** five pages you swipe between:
+  * **Now:** the running timer with Stop and Cancel, or Continue the last entry, plus New timer (description by voice or keyboard, project from a list).
+  * **Favorites.**
+  * **Frequent:** the most-tracked timers of the last 30 days, ranked once a day.
+  * **History:** the last 7 days with daily totals. Tap an entry to continue, edit (description and project) or delete it.
+  * **Sync:** status, Refresh and Open on phone.
+
+  Starting a timer jumps to Now, and each page remembers its scroll position. There's also a **tile** (running timer with Stop, and up to six timers in two columns), a **short-text complication** showing elapsed time, an **Ongoing Activity** icon on the watch face while a timer runs, and a dimmed ambient screen.
 * **Phone:** paste your Toggl API token, manage favorites (add, add from recent, reorder, delete),
   and check sync status.
 * **Nothing is lost offline:** the watch queues commands until the phone is reachable, and the
@@ -94,8 +97,11 @@ Then:
   Starting opens the official Toggl app through its `toggl://tracker/timeEntry/start?...` link. If no
   installed app handles that link, Track Watch starts the timer through its own Toggl connection instead.
 
-* On the watch, swipe right to go back. The system swipe-to-dismiss is disabled so the gesture
+* On the watch, swipe left and right to move between the five pages. On detail screens (entry,
+  edit, project), swiping right goes back. The system swipe-to-dismiss is disabled so the gesture
   works per screen instead of closing the app.
+* Wear OS tiles can't scroll, so the tile shows as many timers as fit: favorites first, then
+  frequent timers.
 * The phone refreshes from Toggl when the watch app or tile opens, after each change, and every
   15 minutes. Projects are refreshed at most once an hour, to stay within Toggl's API quotas.
 * If Toggl reports the API quota as exhausted (HTTP 402), the phone waits until the quota resets

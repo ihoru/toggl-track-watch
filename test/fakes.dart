@@ -16,6 +16,10 @@ ViewState sampleState({bool running = true}) => ViewState(
     Favorite(description: 'Deep work', projectId: 1),
     Favorite(description: 'Email', projectId: null),
   ],
+  frequent: const [
+    Frequent(description: 'Coding', projectId: 1, count: 12),
+    Frequent(description: 'Standup', projectId: 2, count: 5),
+  ],
   entries: [
     if (running)
       TimeEntry(
@@ -86,6 +90,27 @@ class FakeWatchBridge implements WatchBridge {
 
   @override
   Future<String?> textInput(String label) async => nextText;
+
+  final _ambient = StreamController<String>.broadcast();
+  Map<String, dynamic> uiState = {};
+  bool phoneReachable = true;
+
+  void setAmbient(String event) => _ambient.add(event);
+
+  @override
+  Stream<String> get ambient => _ambient.stream;
+
+  @override
+  Future<bool> openOnPhone() async {
+    calls.add('openOnPhone');
+    return phoneReachable;
+  }
+
+  @override
+  Future<Map<String, dynamic>> loadUiState() async => {...uiState};
+
+  @override
+  Future<void> saveUiState(Map<String, dynamic> state) async => uiState = {...state};
 }
 
 class FakePhoneBridge implements PhoneBridge {

@@ -128,6 +128,8 @@ class MainActivity : FlutterActivity() {
             if (packageManager.resolveActivity(intent, 0) != null) {
                 try {
                     startActivity(intent)
+                    // Pick up the entry the Toggl app creates, so the watch shows it.
+                    Sync.refreshSoon(this, 10_000)
                     return "toggl"
                 } catch (e: ActivityNotFoundException) {
                     // Fall through to our own API.

@@ -33,6 +33,18 @@ data class Favorite(val description: String, val projectId: Long?) {
     }
 }
 
+/** A (description, project) pair and how many times it was tracked in the last 30 days. */
+data class Frequent(val description: String, val projectId: Long?, val count: Int) {
+    fun toJson(): JSONObject = JSONObject()
+        .put("description", description)
+        .put("projectId", projectId ?: JSONObject.NULL)
+        .put("count", count)
+
+    companion object {
+        fun fromJson(o: JSONObject) = Frequent(o.optString("description", ""), o.optLongOrNull("projectId"), o.optInt("count", 0))
+    }
+}
+
 /** Times are epoch milliseconds. [stop] is null while the entry is running. */
 data class TimeEntry(
     val id: String,
@@ -104,6 +116,8 @@ data class ViewState(
     val entries: List<TimeEntry> = emptyList(),
     val projects: List<Project> = emptyList(),
     val favorites: List<Favorite> = emptyList(),
+    /** Most-tracked (description, project) pairs of the last 30 days, recalculated once a day. */
+    val frequent: List<Frequent> = emptyList(),
     val acks: List<String> = emptyList(),
     /** Local ids of entries created offline mapped to their Toggl ids. */
     val idMap: Map<String, String> = emptyMap(),
@@ -126,6 +140,7 @@ data class ViewState(
         .put("entries", JSONArray(entries.map { it.toJson() }))
         .put("projects", JSONArray(projects.map { it.toJson() }))
         .put("favorites", JSONArray(favorites.map { it.toJson() }))
+        .put("frequent", JSONArray(frequent.map { it.toJson() }))
         .put("acks", JSONArray(acks))
         .put("idMap", JSONObject(idMap))
         .put("pendingCount", pendingCount)
@@ -144,6 +159,7 @@ data class ViewState(
             entries = o.optJSONArray("entries").objects().map(TimeEntry::fromJson),
             projects = o.optJSONArray("projects").objects().map(Project::fromJson),
             favorites = o.optJSONArray("favorites").objects().map(Favorite::fromJson),
+            frequent = o.optJSONArray("frequent").objects().map(Frequent::fromJson),
             acks = o.optJSONArray("acks").strings(),
             idMap = o.optJSONObject("idMap")?.let { m -> m.keys().asSequence().associateWith { m.getString(it) } } ?: emptyMap(),
             pendingCount = o.optInt("pendingCount", 0),

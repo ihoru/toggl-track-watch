@@ -52,6 +52,14 @@ class TogglApi(private val token: String, private val onQuota: (remaining: Int, 
             .map(::parseEntry)
     }
 
+    /** The running entry, or null. */
+    fun current(): TimeEntry? {
+        val body = call("GET", "/me/time_entries/current").trim()
+        if (body.isEmpty() || body == "null") return null
+        val o = JSONObject(body)
+        return if (o.isNull("server_deleted_at")) parseEntry(o) else null
+    }
+
     fun create(wid: Long, description: String, projectId: Long?, start: Long): TimeEntry {
         val body = JSONObject()
             .put("created_with", "TrackWatch")

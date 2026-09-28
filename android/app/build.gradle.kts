@@ -105,6 +105,8 @@ dependencies {
     "wearImplementation"("androidx.wear.watchface:watchface-complications-data-source-ktx:1.2.1")
     "wearImplementation"("androidx.wear:wear-ongoing:1.0.0")
     "wearImplementation"("androidx.wear:wear-input:1.1.0")
+    "wearImplementation"("androidx.wear:wear:1.3.0")
+    "wearImplementation"("androidx.wear:wear-remote-interactions:1.1.0")
     "wearImplementation"("com.google.guava:guava:33.3.1-android")
 
     testImplementation("junit:junit:4.13.2")

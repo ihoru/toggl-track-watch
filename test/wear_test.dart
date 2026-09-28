@@ -10,39 +10,102 @@ Future<void> pumpWatch(WidgetTester tester, FakeWatchBridge bridge) async {
   tester.view.devicePixelRatio = 2;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(WearApp(bridge: bridge));
-  await tester.pump();
+  await settle(tester);
 }
 
-/// Lets route transitions finish (pumpAndSettle never settles with ticking timers).
+/// Lets transitions finish (pumpAndSettle never settles with ticking timers).
 Future<void> settle(WidgetTester tester) async {
   await tester.pump();
   await tester.pump(const Duration(seconds: 1));
 }
 
 Future<void> tapText(WidgetTester tester, String text) async {
-  await tester.scrollUntilVisible(find.text(text), 50);
+  await tester.scrollUntilVisible(find.text(text), 50, scrollable: find.byType(Scrollable).hitTestable().last);
   await tester.ensureVisible(find.text(text));
   await tester.pump();
   await tester.tap(find.text(text));
   await settle(tester);
 }
 
+/// Swipes the pager one page to the left (to the next section).
+Future<void> nextPage(WidgetTester tester) async {
+  await tester.fling(find.byType(PageView), const Offset(-200, 0), 1000);
+  await settle(tester);
+}
+
 void main() {
-  testWidgets('home shows running timer, favorites and recents', (tester) async {
+  testWidgets('five pages: now, favorites, frequent, history, sync', (tester) async {
     final bridge = FakeWatchBridge(sampleState());
     await pumpWatch(tester, bridge);
 
-    expect(find.text('Coding'), findsWidgets);
+    // Now
+    expect(find.text('Coding'), findsOneWidget);
     expect(find.text('Stop'), findsOneWidget);
     await tester.tap(find.text('Stop'));
     expect(bridge.calls, ['stop:10']);
 
+    await nextPage(tester);
+    expect(find.text('Favorites'), findsOneWidget);
+    expect(find.text('Deep work'), findsOneWidget);
+
+    await nextPage(tester);
+    expect(find.text('Frequent · 30 days'), findsOneWidget);
+    expect(find.text('Client A · ×12'), findsOneWidget);
+    expect(find.text('Internal · ×5'), findsOneWidget);
+
+    await nextPage(tester);
+    expect(find.textContaining('Today'), findsOneWidget);
+
+    await nextPage(tester);
+    expect(find.text('27 Toggl API requests left'), findsOneWidget);
+    await tapText(tester, 'Refresh');
+    expect(bridge.calls.last, 'refresh');
+    await tapText(tester, 'Open on phone');
+    expect(bridge.calls.last, 'openOnPhone');
+    expect(find.text('Opened on phone'), findsOneWidget);
+
+    // The last page is remembered.
+    await tester.pump(const Duration(seconds: 1));
+    expect(bridge.uiState['page'], 4);
+  });
+
+  testWidgets('starting a favorite or frequent timer jumps to the current timer', (tester) async {
+    final bridge = FakeWatchBridge(sampleState(running: false));
+    await pumpWatch(tester, bridge);
+    expect(find.text('No timer running'), findsOneWidget);
+
+    await nextPage(tester);
     await tapText(tester, 'Deep work');
     expect(bridge.calls.last, 'start:Deep work:1');
+    expect(find.text('No timer running'), findsOneWidget);
 
-    // "Coding" is not a favorite, so it appears under Recent.
-    await tester.scrollUntilVisible(find.text('Recent'), 50);
-    expect(find.text('Standup'), findsOneWidget);
+    await nextPage(tester);
+    await nextPage(tester);
+    await tapText(tester, 'Standup');
+    expect(bridge.calls.last, 'start:Standup:2');
+    expect(find.text('No timer running'), findsOneWidget);
+  });
+
+  testWidgets('remembers the last page across launches', (tester) async {
+    final bridge = FakeWatchBridge(sampleState())..uiState = {'page': 2};
+    await pumpWatch(tester, bridge);
+    expect(find.text('Frequent · 30 days'), findsOneWidget);
+  });
+
+  testWidgets('cancel discards the running timer after confirmation', (tester) async {
+    final bridge = FakeWatchBridge(sampleState());
+    await pumpWatch(tester, bridge);
+
+    await tapText(tester, 'Cancel');
+    expect(find.text('Discard this timer?'), findsOneWidget);
+    await tester.tap(find.byTooltip('No'));
+    await settle(tester);
+    expect(bridge.calls, isEmpty);
+
+    await tapText(tester, 'Cancel');
+    await tester.tap(find.byTooltip('Confirm'));
+    await settle(tester);
+    expect(bridge.calls.last, 'delete:10');
   });
 
   testWidgets('unconfigured watch asks to set up the phone', (tester) async {
@@ -53,7 +116,6 @@ void main() {
   testWidgets('new timer with voice description and project', (tester) async {
     final bridge = FakeWatchBridge(sampleState(running: false))..nextText = 'Planning';
     await pumpWatch(tester, bridge);
-    expect(find.text('No timer running'), findsOneWidget);
 
     await tapText(tester, 'New timer');
     await tapText(tester, 'Add description');
@@ -62,16 +124,17 @@ void main() {
     await tapText(tester, 'Internal');
     await tapText(tester, 'Start');
     expect(bridge.calls.last, 'start:Planning:2');
-    // Back on the home screen.
-    expect(find.text('New timer'), findsOneWidget);
     expect(find.text('Add description'), findsNothing);
+    expect(find.text('No timer running'), findsOneWidget);
   });
 
   testWidgets('history: edit, continue and delete an entry', (tester) async {
     final bridge = FakeWatchBridge(sampleState(running: false))..nextText = 'Retro';
     await pumpWatch(tester, bridge);
+    for (var i = 0; i < 3; i++) {
+      await nextPage(tester);
+    }
 
-    await tapText(tester, 'History');
     expect(find.textContaining('Today'), findsOneWidget);
     await tapText(tester, 'Standup');
 
@@ -88,5 +151,22 @@ void main() {
     await tapText(tester, 'Coding');
     await tapText(tester, 'Continue');
     expect(bridge.calls.last, 'start:Coding:1');
+    expect(find.text('No timer running'), findsOneWidget);
+  });
+
+  testWidgets('ambient mode shows the low-power timer view', (tester) async {
+    final bridge = FakeWatchBridge(sampleState());
+    await pumpWatch(tester, bridge);
+
+    bridge.setAmbient('enter');
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('0:05'), findsOneWidget);
+    expect(find.text('Stop'), findsNothing);
+
+    bridge.setAmbient('exit');
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('Stop'), findsOneWidget);
   });
 }

@@ -8,6 +8,7 @@ import com.google.android.gms.wearable.PutDataRequest
 import com.google.android.gms.wearable.Wearable
 import su.iho.trackwatch.shared.Command
 import su.iho.trackwatch.shared.CommandType
+import su.iho.trackwatch.shared.Frequency
 import su.iho.trackwatch.shared.LOCAL_ID_PREFIX
 import su.iho.trackwatch.shared.Paths
 import kotlinx.coroutines.tasks.await
@@ -51,7 +52,8 @@ class SyncEngine(private val context: Context) {
                 store.removeCommand(cmd.id)
             }
             val stale = System.currentTimeMillis() - store.lastRefresh > MIN_REFRESH_INTERVAL
-            if ((store.refreshRequested && stale) || store.lastRefresh == 0L) refresh(api, account.workspaceId)
+            val due = store.refreshRequested && (stale || store.refreshForced)
+            if (due || store.lastRefresh == 0L) refresh(api, account.workspaceId)
             store.setStatus(error = dropped, synced = true)
             return SyncOutcome.Done
         } catch (e: TogglException) {
@@ -119,7 +121,21 @@ class SyncEngine(private val context: Context) {
         val to = today.plusDays(1).atStartOfDay(zone).toInstant()
         val projectsStale = System.currentTimeMillis() - store.projectsFetchedAt > PROJECTS_TTL
         val projects = if (projectsStale) api.projects(wid) else null
-        store.setRefreshed(api.entries(wid, from, to), projects)
+
+        // Once a day, fetch 30 days instead of 7 (still one request) and rank the frequent timers.
+        val entries = if (store.frequentDay != today.toString()) {
+            val month = api.entries(wid, today.minusDays(FREQUENT_DAYS - 1).atStartOfDay(zone).toInstant(), to)
+            store.setFrequent(Frequency.rank(month), today.toString())
+            month.filter { it.start >= from.toEpochMilli() }
+        } else {
+            api.entries(wid, from, to)
+        }.toMutableList()
+
+        // Safety net: a timer started elsewhere may be missing from the date-range list.
+        if (entries.none { it.isRunning }) {
+            api.current()?.let { running -> entries.removeAll { it.id == running.id }; entries.add(running) }
+        }
+        store.setRefreshed(entries, projects)
     }
 
     /** Picks up commands whose DATA_CHANGED event was missed (e.g. app was updated). */
@@ -138,6 +154,7 @@ class SyncEngine(private val context: Context) {
 
     companion object {
         const val HISTORY_DAYS = 7L
+        private const val FREQUENT_DAYS = 30L
         private const val FRESH_STOP_WINDOW = 2 * 60_000L
         private const val MIN_REFRESH_INTERVAL = 30_000L
         private const val PROJECTS_TTL = 60 * 60_000L

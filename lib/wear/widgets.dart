@@ -1,75 +1,156 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../src/format.dart';
 import '../src/models.dart';
 import 'watch_bridge.dart';
 
 /// A scrolling list sized for a round screen, scrollable with the rotary crown.
-/// Swiping right goes back (the system swipe-to-dismiss is disabled so that it
-/// works per screen instead of closing the app).
+///
+/// On pushed screens, swiping right goes back (the system swipe-to-dismiss is
+/// disabled so that it works per screen instead of closing the app). Pager
+/// pages set [swipeBack] to false so the pager gets horizontal swipes.
 class RoundList extends StatefulWidget {
-  const RoundList({super.key, required this.children, this.onSwipeBack});
+  const RoundList({super.key, required this.children, this.storageKey, this.active = true, this.swipeBack = true});
 
   final List<Widget> children;
 
-  /// Defaults to popping the current route, or leaving the app on the first screen.
-  final VoidCallback? onSwipeBack;
+  /// When set, the scroll position is remembered across app launches under this key.
+  final String? storageKey;
+
+  /// Only the active list follows the rotary crown (pager pages that are off screen are inactive).
+  final bool active;
+  final bool swipeBack;
 
   @override
   State<RoundList> createState() => _RoundListState();
 }
 
 class _RoundListState extends State<RoundList> {
-  final _controller = ScrollController();
+  ScrollController? _controller;
   StreamSubscription<double>? _rotary;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final model = WatchScope.read(context);
+    final key = widget.storageKey;
+    _controller ??= ScrollController(initialScrollOffset: key == null ? 0 : model.savedOffset(key));
     _rotary?.cancel();
-    _rotary = WatchScope.read(context).bridge.rotary.listen(_onRotary);
+    _rotary = model.bridge.rotary.listen(_onRotary);
   }
 
   void _onRotary(double delta) {
-    if (!_controller.hasClients || !(ModalRoute.of(context)?.isCurrent ?? true)) return;
-    final position = _controller.position;
+    final controller = _controller!;
+    if (!widget.active || !controller.hasClients || !(ModalRoute.of(context)?.isCurrent ?? true)) return;
+    final position = controller.position;
     final target = (position.pixels + delta).clamp(position.minScrollExtent, position.maxScrollExtent);
-    _controller.jumpTo(target);
+    controller.jumpTo(target);
+    _remember();
+  }
+
+  void _remember() {
+    final key = widget.storageKey;
+    final controller = _controller!;
+    if (key != null && controller.hasClients) WatchScope.read(context).saveOffset(key, controller.offset);
   }
 
   @override
   void dispose() {
     _rotary?.cancel();
-    _controller.dispose();
+    _controller?.dispose();
     super.dispose();
-  }
-
-  void _back() {
-    if (widget.onSwipeBack != null) return widget.onSwipeBack!();
-    final navigator = Navigator.of(context);
-    if (navigator.canPop()) {
-      navigator.pop();
-    } else {
-      SystemNavigator.pop();
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    return Scaffold(
-      body: GestureDetector(
+    Widget list = NotificationListener<ScrollEndNotification>(
+      onNotification: (_) {
+        _remember();
+        return false;
+      },
+      child: ListView(
+        controller: _controller,
+        padding: EdgeInsets.symmetric(horizontal: size.width * 0.1, vertical: size.height * 0.16),
+        children: widget.children,
+      ),
+    );
+    if (widget.swipeBack) {
+      list = GestureDetector(
         behavior: HitTestBehavior.translucent,
         onHorizontalDragEnd: (d) {
-          if ((d.primaryVelocity ?? 0) > 300) _back();
+          if ((d.primaryVelocity ?? 0) > 300) Navigator.of(context).maybePop();
         },
-        child: ListView(
-          controller: _controller,
-          padding: EdgeInsets.symmetric(horizontal: size.width * 0.1, vertical: size.height * 0.16),
-          children: widget.children,
+        child: list,
+      );
+    }
+    return Scaffold(body: list);
+  }
+}
+
+/// Small position dots for the pager, placed at the bottom of the round screen.
+class PageDots extends StatelessWidget {
+  const PageDots({super.key, required this.count, required this.index});
+
+  final int count;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      for (var i = 0; i < count; i++)
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          margin: const EdgeInsets.symmetric(horizontal: 2.5),
+          width: i == index ? 8 : 5,
+          height: 5,
+          decoration: BoxDecoration(
+            color: i == index ? Colors.white : Colors.white38,
+            borderRadius: BorderRadius.circular(3),
+          ),
+        ),
+    ],
+  );
+}
+
+/// The dimmed, low-power screen shown while the watch is in ambient mode:
+/// black background, thin white text, updated about once a minute.
+class AmbientView extends StatelessWidget {
+  const AmbientView({super.key, required this.state});
+
+  final ViewState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final running = state.running;
+    final theme = Theme.of(context);
+    final elapsed = running?.duration();
+    return ColoredBox(
+      color: Colors.black,
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                elapsed == null ? '—' : '${elapsed.inHours}:${(elapsed.inMinutes % 60).toString().padLeft(2, '0')}',
+                style: theme.textTheme.displaySmall?.copyWith(color: Colors.white, fontWeight: FontWeight.w200),
+              ),
+              Text(
+                running == null
+                    ? 'No timer running'
+                    : (running.description.isEmpty ? '(no description)' : running.description),
+                maxLines: 2,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -170,7 +251,19 @@ class Ticking extends StatefulWidget {
 }
 
 class _TickingState extends State<Ticking> {
-  late final Timer _timer = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+  bool _enabled = true;
+
+  // Paused while tickers are disabled (e.g. behind the ambient screen) to save power.
+  late final Timer _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+    if (_enabled) setState(() {});
+  });
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _enabled = TickerMode.valuesOf(context).enabled;
+    _timer; // Start the timer.
+  }
 
   @override
   void dispose() {
@@ -182,13 +275,23 @@ class _TickingState extends State<Ticking> {
   Widget build(BuildContext context) => widget.builder(context);
 }
 
-/// The currently running entry with elapsed time and a Stop button.
+/// The currently running entry with elapsed time, Stop and Cancel buttons.
 class RunningCard extends StatelessWidget {
-  const RunningCard({super.key, required this.entry, required this.state, required this.onStop, this.onTap});
+  const RunningCard({
+    super.key,
+    required this.entry,
+    required this.state,
+    required this.onStop,
+    this.onCancel,
+    this.onTap,
+  });
 
   final TimeEntry entry;
   final ViewState state;
   final VoidCallback onStop;
+
+  /// Discards the running entry (the caller asks for confirmation).
+  final VoidCallback? onCancel;
   final VoidCallback? onTap;
 
   @override
@@ -227,11 +330,32 @@ class RunningCard extends StatelessWidget {
             style: theme.textTheme.bodySmall?.copyWith(color: color),
           ),
           const SizedBox(height: 6),
-          FilledButton.icon(
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFFE57373), foregroundColor: Colors.black),
-            onPressed: onStop,
-            icon: const Icon(Icons.stop),
-            label: const Text('Stop'),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              FilledButton.icon(
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFFE57373),
+                  foregroundColor: Colors.black,
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: onStop,
+                icon: const Icon(Icons.stop),
+                label: const Text('Stop'),
+              ),
+              if (onCancel != null)
+                OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFFE57373),
+                    side: const BorderSide(color: Color(0xFFE57373)),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onPressed: onCancel,
+                  child: const Text('Cancel'),
+                ),
+            ],
           ),
         ],
       ),
@@ -252,7 +376,7 @@ class PendingIcon extends StatelessWidget {
   );
 }
 
-/// Phone reachability, queue and error line shown at the top of the home screen.
+/// Phone reachability, queue and error line shown on the current-timer page.
 class StatusLine extends StatelessWidget {
   const StatusLine({super.key, required this.state});
 
@@ -303,7 +427,7 @@ Future<bool> confirm(BuildContext context, String question) async {
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     IconButton.filledTonal(
-                      tooltip: 'Cancel',
+                      tooltip: 'No',
                       onPressed: () => Navigator.pop(context, false),
                       icon: const Icon(Icons.close),
                     ),

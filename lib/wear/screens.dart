@@ -9,20 +9,70 @@ import 'widgets.dart';
 Future<T?> _push<T>(BuildContext context, Widget screen) =>
     Navigator.of(context).push<T>(MaterialPageRoute(builder: (_) => screen));
 
-class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+/// Starts a timer, closes any open sub-screens and shows the current-timer page.
+void startTimer(BuildContext context, String description, int? projectId) {
+  WatchScope.read(context).start(description, projectId);
+  Navigator.of(context).popUntil((r) => r.isFirst);
+}
+
+/// The five sections, swiped left/right: Now, Favorites, Frequent, History, Sync.
+class HomePager extends StatefulWidget {
+  const HomePager({super.key});
+
+  static const pageCount = 5;
+
+  @override
+  State<HomePager> createState() => _HomePagerState();
+}
+
+class _HomePagerState extends State<HomePager> {
+  PageController? _controller;
+  int _page = 0;
+  WatchModel? _model;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final model = WatchScope.of(context);
+    if (_model != model) {
+      _model?.startSignal.removeListener(_showNow);
+      model.startSignal.addListener(_showNow);
+      _model = model;
+    }
+    if (_controller == null && model.loaded) {
+      _page = model.savedPage.clamp(0, HomePager.pageCount - 1);
+      _controller = PageController(initialPage: _page);
+    }
+  }
+
+  void _showNow() {
+    final controller = _controller;
+    if (controller == null || !controller.hasClients) return;
+    // Behind a detail screen animations are paused, so jump instead of animating.
+    if (ModalRoute.of(context)?.isCurrent ?? true) {
+      controller.animateToPage(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    } else {
+      controller.jumpToPage(0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _model?.startSignal.removeListener(_showNow);
+    _controller?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final model = WatchScope.of(context);
-    final state = model.state;
-    final bridge = model.bridge;
-
-    if (!model.loaded) {
+    final controller = _controller;
+    if (!model.loaded || controller == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    if (!state.configured) {
+    if (!model.state.configured) {
       return const RoundList(
+        swipeBack: false,
         children: [
           SizedBox(height: 24),
           Icon(Icons.phone_android, size: 32),
@@ -31,17 +81,53 @@ class HomeScreen extends StatelessWidget {
         ],
       );
     }
+    final bottom = MediaQuery.sizeOf(context).height * 0.05;
+    return Stack(
+      children: [
+        PageView(
+          controller: controller,
+          onPageChanged: (page) {
+            setState(() => _page = page);
+            model.savePage(page);
+          },
+          children: [
+            NowPage(active: _page == 0),
+            FavoritesPage(active: _page == 1),
+            FrequentPage(active: _page == 2),
+            HistoryPage(active: _page == 3),
+            SyncPage(active: _page == 4),
+          ],
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: bottom,
+          child: IgnorePointer(
+            child: Center(
+              child: PageDots(count: HomePager.pageCount, index: _page),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
 
+class NowPage extends StatelessWidget {
+  const NowPage({super.key, this.active = true});
+
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final model = WatchScope.of(context);
+    final state = model.state;
     final running = state.running;
-    final favorites = state.favorites;
-    final recents = state.recents().where((r) => !favorites.contains(r)).take(6).toList();
-
-    Future<void> start(Favorite f) async {
-      HapticFeedback.heavyImpact();
-      await bridge.start(f.description, f.projectId);
-    }
-
+    final last = state.entries.where((e) => !e.isRunning).firstOrNull;
     return RoundList(
+      storageKey: 'now',
+      active: active,
+      swipeBack: false,
       children: [
         StatusLine(state: state),
         if (running != null)
@@ -50,71 +136,145 @@ class HomeScreen extends StatelessWidget {
             state: state,
             onStop: () {
               HapticFeedback.heavyImpact();
-              bridge.stop(running.id);
+              model.bridge.stop(running.id);
+            },
+            onCancel: () async {
+              if (!await confirm(context, 'Discard this timer?')) return;
+              HapticFeedback.heavyImpact();
+              await model.bridge.delete(running.id);
             },
             onTap: () => _push(context, EntryScreen(entry: running)),
           )
-        else
+        else ...[
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: Text('No timer running', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleSmall),
           ),
+          if (last != null)
+            WearChip(
+              label: last.description.isEmpty ? '(no description)' : last.description,
+              secondary: 'Continue · ${state.project(last.projectId)?.name ?? 'No project'}',
+              icon: Icons.play_arrow,
+              color: colorFromHex(state.project(last.projectId)?.color),
+              onTap: () => startTimer(context, last.description, last.projectId),
+            ),
+        ],
         WearChip(
           label: 'New timer',
           icon: Icons.add,
           color: Theme.of(context).colorScheme.primary,
           onTap: () => _push(context, const EditScreen.create()),
         ),
-        if (favorites.isNotEmpty) const WearHeader('Favorites'),
-        for (final f in favorites) _FavoriteChip(favorite: f, state: state, icon: Icons.star, onTap: () => start(f)),
-        if (recents.isNotEmpty) const WearHeader('Recent'),
-        for (final f in recents) _FavoriteChip(favorite: f, state: state, onTap: () => start(f)),
-        const WearHeader(''),
-        WearChip(label: 'History', icon: Icons.history, onTap: () => _push(context, const HistoryScreen())),
-        WearChip(
-          label: 'Refresh',
-          icon: Icons.refresh,
-          secondary: [
-            if (state.lastSync != null) 'Synced ${relativeAgo(state.lastSync!)}',
-            if (state.quotaLeft() case final left?) '$left API left',
-          ].join(' · ').nullIfEmpty,
-          onTap: bridge.refresh,
-        ),
       ],
     );
   }
 }
 
-class _FavoriteChip extends StatelessWidget {
-  const _FavoriteChip({required this.favorite, required this.state, required this.onTap, this.icon});
+class FavoritesPage extends StatelessWidget {
+  const FavoritesPage({super.key, this.active = true});
 
-  final Favorite favorite;
-  final ViewState state;
-  final VoidCallback onTap;
-  final IconData? icon;
+  final bool active;
 
   @override
   Widget build(BuildContext context) {
-    final project = state.project(favorite.projectId);
+    final state = WatchScope.of(context).state;
+    return RoundList(
+      storageKey: 'favorites',
+      active: active,
+      swipeBack: false,
+      children: [
+        const WearHeader('Favorites'),
+        if (state.favorites.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(12),
+            child: Text('Add favorites in the phone app.', textAlign: TextAlign.center),
+          ),
+        for (final f in state.favorites)
+          _TimerChip(
+            description: f.description,
+            projectId: f.projectId,
+            state: state,
+            onTap: () => startTimer(context, f.description, f.projectId),
+          ),
+      ],
+    );
+  }
+}
+
+class FrequentPage extends StatelessWidget {
+  const FrequentPage({super.key, this.active = true});
+
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = WatchScope.of(context).state;
+    return RoundList(
+      storageKey: 'frequent',
+      active: active,
+      swipeBack: false,
+      children: [
+        const WearHeader('Frequent · 30 days'),
+        if (state.frequent.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(12),
+            child: Text('Nothing tracked in the last 30 days yet.', textAlign: TextAlign.center),
+          ),
+        for (final f in state.frequent)
+          _TimerChip(
+            description: f.description,
+            projectId: f.projectId,
+            state: state,
+            count: f.count,
+            onTap: () => startTimer(context, f.description, f.projectId),
+          ),
+      ],
+    );
+  }
+}
+
+class _TimerChip extends StatelessWidget {
+  const _TimerChip({
+    required this.description,
+    required this.projectId,
+    required this.state,
+    required this.onTap,
+    this.count,
+  });
+
+  final String description;
+  final int? projectId;
+  final ViewState state;
+  final VoidCallback onTap;
+  final int? count;
+
+  @override
+  Widget build(BuildContext context) {
+    final project = state.project(projectId);
+    final projectName = project?.name ?? 'No project';
     return WearChip(
-      label: favorite.description.isEmpty ? (project?.name ?? '(no description)') : favorite.description,
-      secondary: project?.name ?? 'No project',
+      label: description.isEmpty ? (project?.name ?? '(no description)') : description,
+      secondary: count == null ? projectName : '$projectName · ×$count',
       color: colorFromHex(project?.color),
-      icon: icon,
       onTap: onTap,
       trailing: const Icon(Icons.play_arrow, size: 18),
     );
   }
 }
 
-class HistoryScreen extends StatelessWidget {
-  const HistoryScreen({super.key});
+class HistoryPage extends StatelessWidget {
+  const HistoryPage({super.key, this.active = true});
+
+  final bool active;
 
   @override
   Widget build(BuildContext context) {
     final state = WatchScope.of(context).state;
     final days = state.days();
     return RoundList(
+      storageKey: 'history',
+      active: active,
+      swipeBack: false,
       children: [
         const WearHeader('History'),
         if (days.isEmpty)
@@ -149,6 +309,65 @@ class _EntryChip extends StatelessWidget {
       color: colorFromHex(project?.color),
       trailing: entry.pending ? const PendingIcon() : null,
       onTap: () => _push(context, EntryScreen(entry: entry)),
+    );
+  }
+}
+
+/// Sync status, Refresh and Open on phone.
+class SyncPage extends StatefulWidget {
+  const SyncPage({super.key, this.active = true});
+
+  final bool active;
+
+  @override
+  State<SyncPage> createState() => _SyncPageState();
+}
+
+class _SyncPageState extends State<SyncPage> {
+  String? _message;
+
+  @override
+  Widget build(BuildContext context) {
+    final model = WatchScope.of(context);
+    final state = model.state;
+    final lines = [
+      state.phoneReachable ? 'Phone connected' : 'Phone offline',
+      if (state.pendingCount > 0) '${state.pendingCount} change(s) queued',
+      state.lastSync == null ? 'Never synced' : 'Synced ${relativeAgo(state.lastSync!)}',
+      if (state.quotaLeft() case final left?) '$left Toggl API requests left',
+      if (state.rateLimitedUntil case final until?) 'API limit until ${formatTime(context, until)}',
+      ?state.error,
+    ];
+    return RoundList(
+      storageKey: 'sync',
+      active: widget.active,
+      swipeBack: false,
+      children: [
+        const WearHeader('Sync'),
+        for (final line in lines) Text(line, textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+        const SizedBox(height: 8),
+        WearChip(
+          label: 'Refresh',
+          icon: Icons.refresh,
+          onTap: () {
+            model.bridge.refresh();
+            setState(() => _message = 'Refresh requested');
+          },
+        ),
+        WearChip(
+          label: 'Open on phone',
+          icon: Icons.phone_android,
+          onTap: () async {
+            final ok = await model.bridge.openOnPhone();
+            if (mounted) setState(() => _message = ok ? 'Opened on phone' : 'Phone not reachable');
+          },
+        ),
+        if (_message != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(_message!, textAlign: TextAlign.center, style: Theme.of(context).textTheme.labelSmall),
+          ),
+      ],
     );
   }
 }
@@ -225,11 +444,7 @@ class EntryScreen extends StatelessWidget {
             label: 'Continue',
             icon: Icons.play_arrow,
             color: Colors.lightGreenAccent,
-            onTap: () {
-              HapticFeedback.heavyImpact();
-              bridge.start(e.description, e.projectId);
-              Navigator.of(context).popUntil((r) => r.isFirst);
-            },
+            onTap: () => startTimer(context, e.description, e.projectId),
           ),
         WearChip(
           label: 'Edit',
@@ -299,11 +514,10 @@ class _EditScreenState extends State<EditScreen> {
           icon: Icon(creating ? Icons.play_arrow : Icons.check),
           label: Text(creating ? 'Start' : 'Save'),
           onPressed: () {
-            HapticFeedback.heavyImpact();
             if (creating) {
-              model.bridge.start(_description, _projectId);
-              Navigator.of(context).popUntil((r) => r.isFirst);
+              startTimer(context, _description, _projectId);
             } else {
+              HapticFeedback.heavyImpact();
               model.bridge.update(widget.entry!.id, _description, _projectId);
               Navigator.of(context).pop();
             }

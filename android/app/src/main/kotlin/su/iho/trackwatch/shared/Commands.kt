@@ -65,3 +65,15 @@ object QueueLogic {
         return queue + cmd
     }
 }
+
+/** Ranks what was tracked most often: grouped by (description, project), most frequent first. */
+object Frequency {
+    fun rank(entries: List<TimeEntry>, limit: Int = 15): List<Frequent> =
+        entries
+            .filter { it.description.isNotBlank() || it.projectId != null }
+            .groupBy { it.description.trim() to it.projectId }
+            .map { (key, group) -> Triple(key, group.size, group.maxOf { it.start }) }
+            .sortedWith(compareByDescending<Triple<Pair<String, Long?>, Int, Long>> { it.second }.thenByDescending { it.third })
+            .take(limit)
+            .map { (key, count, _) -> Frequent(key.first, key.second, count) }
+}

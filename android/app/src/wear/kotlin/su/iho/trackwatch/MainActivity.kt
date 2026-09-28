@@ -5,7 +5,11 @@ import android.app.RemoteInput
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
+import android.net.Uri
 import android.os.Bundle
+import android.view.WindowManager
+import androidx.wear.ambient.AmbientLifecycleObserver
+import androidx.wear.remote.interactions.RemoteActivityHelper
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import androidx.core.view.InputDeviceCompat
@@ -23,9 +27,30 @@ class MainActivity : FlutterActivity() {
     private var stateListener: ((ViewState) -> Unit)? = null
     private var rotarySink: EventChannel.EventSink? = null
     private var pendingTextResult: MethodChannel.Result? = null
+    private var ambientSink: EventChannel.EventSink? = null
+    private val uiPrefs by lazy { getSharedPreferences("ui", MODE_PRIVATE) }
+
+    /** Lets the system dim the screen and show a low-power version of the app (ambient mode). */
+    private val ambientObserver by lazy {
+        AmbientLifecycleObserver(this, object : AmbientLifecycleObserver.AmbientLifecycleCallback {
+            override fun onEnterAmbient(ambientDetails: AmbientLifecycleObserver.AmbientDetails) {
+                ambientSink?.success("enter")
+            }
+
+            override fun onExitAmbient() {
+                ambientSink?.success("exit")
+            }
+
+            override fun onUpdateAmbient() {
+                ambientSink?.success("update")
+            }
+        })
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        lifecycle.addObserver(ambientObserver)
         if (Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
@@ -63,6 +88,19 @@ class MainActivity : FlutterActivity() {
                     store.delete(entryId())
                     result.success(null)
                 }
+                "getUiState" -> result.success(uiPrefs.getString("state", "{}"))
+                "setUiState" -> {
+                    uiPrefs.edit().putString("state", call.argument<String>("state") ?: "{}").apply()
+                    result.success(null)
+                }
+                "openOnPhone" -> {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("trackwatch://open"))
+                        .addCategory(Intent.CATEGORY_BROWSABLE)
+                    val future = RemoteActivityHelper(this, mainExecutor).startRemoteActivity(intent)
+                    future.addListener({
+                        result.success(runCatching { future.get() }.isSuccess)
+                    }, mainExecutor)
+                }
                 "refresh" -> {
                     store.requestRefresh()
                     result.success(null)
@@ -90,6 +128,17 @@ class MainActivity : FlutterActivity() {
             override fun onCancel(arguments: Any?) {
                 stateListener?.let { store.removeListener(it) }
                 stateListener = null
+            }
+        })
+
+        EventChannel(messenger, "trackwatch/watch/ambient").setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink) {
+                ambientSink = events
+                if (ambientObserver.isAmbient) events.success("enter")
+            }
+
+            override fun onCancel(arguments: Any?) {
+                ambientSink = null
             }
         })
 

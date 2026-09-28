@@ -7,6 +7,7 @@ import com.google.android.gms.wearable.PutDataRequest
 import com.google.android.gms.wearable.Wearable
 import su.iho.trackwatch.shared.Command
 import su.iho.trackwatch.shared.Favorite
+import su.iho.trackwatch.shared.Frequent
 import su.iho.trackwatch.shared.Paths
 import su.iho.trackwatch.shared.Project
 import su.iho.trackwatch.shared.QueueLogic
@@ -61,6 +62,18 @@ class PhoneStore private constructor(private val context: Context) {
     val lastRefresh get() = prefs.getLong(K_LAST_REFRESH, 0)
     val refreshRequested get() = prefs.getBoolean(K_REFRESH_REQUESTED, false)
     val rateLimitedUntil get() = prefs.getLong(K_RATE_LIMITED_UNTIL, 0)
+    val refreshForced get() = prefs.getBoolean(K_REFRESH_FORCED, false)
+
+    /** Local date (yyyy-MM-dd) when [frequent] was last ranked. */
+    val frequentDay: String? get() = prefs.getString(K_FREQUENT_DAY, null)
+
+    @get:Synchronized
+    val frequent: List<Frequent> get() = readArray(K_FREQUENT).map(Frequent::fromJson)
+
+    @Synchronized
+    fun setFrequent(list: List<Frequent>, day: String) {
+        prefs.edit().putString(K_FREQUENT, JSONArray(list.map { it.toJson() }).toString()).putString(K_FREQUENT_DAY, day).apply()
+    }
 
     @Synchronized
     fun signIn(token: String, account: Account) {
@@ -144,6 +157,7 @@ class PhoneStore private constructor(private val context: Context) {
         val edit = prefs.edit()
             .putLong(K_LAST_REFRESH, System.currentTimeMillis())
             .putBoolean(K_REFRESH_REQUESTED, false)
+            .putBoolean(K_REFRESH_FORCED, false)
         if (projects != null) {
             edit.putString(K_PROJECTS, JSONArray(projects.map { it.toJson() }).toString())
             edit.putLong(K_PROJECTS_AT, System.currentTimeMillis())
@@ -152,9 +166,12 @@ class PhoneStore private constructor(private val context: Context) {
         setSnapshot(entries)
     }
 
+    /** [force] skips the 30-second refresh throttle, e.g. right after the Toggl app started a timer. */
     @Synchronized
-    fun requestRefresh() {
-        prefs.edit().putBoolean(K_REFRESH_REQUESTED, true).apply()
+    fun requestRefresh(force: Boolean = false) {
+        val edit = prefs.edit().putBoolean(K_REFRESH_REQUESTED, true)
+        if (force) edit.putBoolean(K_REFRESH_FORCED, true)
+        edit.apply()
     }
 
     /** Saves the latest quota headers; published with the next state change. */
@@ -180,6 +197,7 @@ class PhoneStore private constructor(private val context: Context) {
             entries = Reducer.apply(snapshot, pending),
             projects = projects.sortedBy { it.name.lowercase() },
             favorites = favorites,
+            frequent = frequent,
             acks = readStrings(K_ACKS).takeLast(MAX_ACKS),
             idMap = ids,
             pendingCount = pending.size,
@@ -229,6 +247,9 @@ class PhoneStore private constructor(private val context: Context) {
         private const val K_REFRESH_REQUESTED = "refreshRequested"
         private const val K_ERROR = "error"
         private const val K_RATE_LIMITED_UNTIL = "rateLimitedUntil"
+        private const val K_REFRESH_FORCED = "refreshForced"
+        private const val K_FREQUENT = "frequent"
+        private const val K_FREQUENT_DAY = "frequentDay"
         private const val K_QUOTA_REMAINING = "quotaRemaining"
         private const val K_QUOTA_RESETS_AT = "quotaResetsAt"
         private const val MAX_ACKS = 200

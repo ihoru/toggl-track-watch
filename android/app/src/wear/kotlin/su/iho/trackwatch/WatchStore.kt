@@ -73,6 +73,11 @@ class WatchStore private constructor(private val context: Context) {
         start(favorite.description, favorite.projectId)
     }
 
+    fun startFrequent(index: Int) {
+        val frequent = view().frequent.getOrNull(index) ?: return
+        start(frequent.description, frequent.projectId)
+    }
+
     fun stop(entryId: String) = dispatch(listOf(CommandFactory.stop(resolve(entryId), System.currentTimeMillis())))
 
     fun stopRunning() {

@@ -17,7 +17,9 @@ import java.util.concurrent.TimeUnit
 
 class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        if (inputData.getBoolean(KEY_REFRESH, false)) PhoneStore.get(applicationContext).requestRefresh()
+        if (inputData.getBoolean(KEY_REFRESH, false)) {
+            PhoneStore.get(applicationContext).requestRefresh(force = inputData.getBoolean(KEY_FORCE, false))
+        }
         return when (val outcome = SyncEngine(applicationContext).run()) {
             SyncOutcome.Done -> Result.success()
             SyncOutcome.Retry -> Result.retry()
@@ -30,12 +32,14 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
 
     companion object {
         const val KEY_REFRESH = "refresh"
+        const val KEY_FORCE = "force"
     }
 }
 
 object Sync {
     private const val NOW = "sync"
     private const val LATER = "sync-later"
+    private const val SOON = "sync-soon"
     private const val PERIODIC = "sync-periodic"
 
     private val network = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
@@ -61,6 +65,16 @@ object Sync {
         WorkManager.getInstance(context).enqueueUniqueWork(LATER, ExistingWorkPolicy.REPLACE, request)
     }
 
+    /** Refreshes from Toggl after [delayMillis], skipping the refresh throttle (e.g. after the Toggl app started a timer). */
+    fun refreshSoon(context: Context, delayMillis: Long) {
+        val request = OneTimeWorkRequestBuilder<SyncWorker>()
+            .setConstraints(network)
+            .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
+            .setInputData(workDataOf(SyncWorker.KEY_REFRESH to true, SyncWorker.KEY_FORCE to true))
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(SOON, ExistingWorkPolicy.REPLACE, request)
+    }
+
     /** Refreshes from Toggl every 15 minutes (the Android minimum). */
     fun schedulePeriodic(context: Context) {
         val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
@@ -74,6 +88,7 @@ object Sync {
         WorkManager.getInstance(context).apply {
             cancelUniqueWork(NOW)
             cancelUniqueWork(LATER)
+            cancelUniqueWork(SOON)
             cancelUniqueWork(PERIODIC)
         }
     }

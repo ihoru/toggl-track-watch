@@ -22,7 +22,6 @@ import androidx.wear.tiles.TileBuilders
 import androidx.wear.tiles.TileService
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
-import su.iho.trackwatch.shared.Favorite
 import su.iho.trackwatch.shared.ViewState
 import java.text.DateFormat
 import java.util.Date
@@ -35,6 +34,7 @@ class TimerTileService : TileService() {
         when {
             clicked == ID_STOP -> store.stopRunning()
             clicked.startsWith(ID_FAVORITE) -> clicked.removePrefix(ID_FAVORITE).toIntOrNull()?.let(store::startFavorite)
+            clicked.startsWith(ID_FREQUENT) -> clicked.removePrefix(ID_FREQUENT).toIntOrNull()?.let(store::startFrequent)
         }
         val tile = TileBuilders.Tile.Builder()
             .setResourcesVersion(RESOURCES_VERSION)
@@ -56,6 +56,7 @@ class TimerTileService : TileService() {
     companion object {
         const val ID_STOP = "stop"
         const val ID_FAVORITE = "fav:"
+        const val ID_FREQUENT = "freq:"
         private const val RESOURCES_VERSION = "1"
     }
 }
@@ -79,13 +80,18 @@ private class TileLayout(private val context: Context, private val device: Devic
             column.addContent(text(listOfNotNull(project, since).joinToString(" · "), Typography.TYPOGRAPHY_CAPTION2, GREY, 1))
         }
 
-        val favorites = state.favorites.take(if (running != null) 2 else 3)
-        if (favorites.isEmpty() && running == null) {
+        val slots = slots(state, if (running != null) 4 else 6)
+        if (slots.isEmpty() && running == null) {
             column.addContent(text("No favorites yet", Typography.TYPOGRAPHY_CAPTION1, GREY, 2))
         }
-        favorites.forEachIndexed { index, favorite ->
+        slots.chunked(2).forEach { pair ->
             column.addContent(LayoutElementBuilders.Spacer.Builder().setHeight(dp(4f)).build())
-            column.addContent(favoriteChip(state, index, favorite))
+            val row = LayoutElementBuilders.Row.Builder()
+            pair.forEachIndexed { i, slot ->
+                if (i > 0) row.addContent(LayoutElementBuilders.Spacer.Builder().setWidth(dp(4f)).build())
+                row.addContent(slotButton(state, slot))
+            }
+            column.addContent(row.build())
         }
 
         val primary = if (running != null) {
@@ -98,12 +104,46 @@ private class TileLayout(private val context: Context, private val device: Devic
         return PrimaryLayout.Builder(device).setContent(column.build()).setPrimaryChipContent(primary).build()
     }
 
-    private fun favoriteChip(state: ViewState, index: Int, favorite: Favorite): LayoutElementBuilders.LayoutElement {
-        val background = projectColor(state, favorite.projectId)
+    /** A timer on the tile: favorites first, then frequent timers that are not favorites. */
+    private data class Slot(val label: String, val projectId: Long?, val clickId: String)
+
+    private fun slots(state: ViewState, count: Int): List<Slot> {
+        fun label(description: String, projectId: Long?) =
+            description.ifBlank { state.project(projectId)?.name ?: "(none)" }
+        val favorites = state.favorites.mapIndexed { i, f ->
+            Slot(label(f.description, f.projectId), f.projectId, TimerTileService.ID_FAVORITE + i)
+        }
+        val frequent = state.frequent.mapIndexedNotNull { i, f ->
+            if (state.favorites.any { it.description == f.description && it.projectId == f.projectId }) null
+            else Slot(label(f.description, f.projectId), f.projectId, TimerTileService.ID_FREQUENT + i)
+        }
+        return (favorites + frequent).take(count)
+    }
+
+    /** A small rounded button in the project's color; two fit side by side. */
+    private fun slotButton(state: ViewState, slot: Slot): LayoutElementBuilders.LayoutElement {
+        val background = projectColor(state, slot.projectId)
         val content = if (ColorUtils.calculateLuminance(background) > 0.5) BLACK else WHITE
-        val label = favorite.description.ifBlank { state.project(favorite.projectId)?.name ?: "(no description)" }
-        return CompactChip.Builder(context, label.take(18), loadClickable(TimerTileService.ID_FAVORITE + index), device)
-            .setChipColors(ChipColors(background, content))
+        val width = (device.screenWidthDp * 0.36f).coerceIn(64f, 96f)
+        val maxChars = (width / 8.5f).toInt()
+        val label = if (slot.label.length > maxChars) slot.label.take(maxChars - 1).trimEnd() + "…" else slot.label
+        return LayoutElementBuilders.Box.Builder()
+            .setWidth(dp(width))
+            .setHeight(dp(30f))
+            .setHorizontalAlignment(LayoutElementBuilders.HORIZONTAL_ALIGN_CENTER)
+            .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
+            .setModifiers(
+                ModifiersBuilders.Modifiers.Builder()
+                    .setClickable(loadClickable(slot.clickId))
+                    .setBackground(
+                        ModifiersBuilders.Background.Builder()
+                            .setColor(argb(background))
+                            .setCorner(ModifiersBuilders.Corner.Builder().setRadius(dp(15f)).build())
+                            .build()
+                    )
+                    .build()
+            )
+            .addContent(text(label, Typography.TYPOGRAPHY_CAPTION2, content, 1))
             .build()
     }
 
