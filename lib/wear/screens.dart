@@ -362,6 +362,15 @@ class _SyncPageState extends State<SyncPage> {
             if (mounted) setState(() => _message = ok ? 'Opened on phone' : 'Phone not reachable');
           },
         ),
+        if (model.version.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              'Track Watch ${model.version}',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white54),
+            ),
+          ),
         if (_message != null)
           Padding(
             padding: const EdgeInsets.only(top: 6),

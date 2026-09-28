@@ -25,6 +25,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Watch connected'), findsOneWidget);
     expect(find.textContaining('27 Toggl API requests left'), findsOneWidget);
+    expect(find.text('Track Watch 1.1.0 (2)'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Add from recent'));
     await tester.pumpAndSettle();

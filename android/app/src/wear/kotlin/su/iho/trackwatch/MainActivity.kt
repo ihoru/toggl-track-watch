@@ -101,6 +101,10 @@ class MainActivity : FlutterActivity() {
                         result.success(runCatching { future.get() }.isSuccess)
                     }, mainExecutor)
                 }
+                "appVersion" -> {
+                    val info = packageManager.getPackageInfo(packageName, 0)
+                    result.success("${info.versionName} (${info.longVersionCode})")
+                }
                 "refresh" -> {
                     store.requestRefresh()
                     result.success(null)

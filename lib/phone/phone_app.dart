@@ -38,6 +38,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
   bool _loaded = false;
   bool _compact = false;
   bool? _watchConnected;
+  String _version = '';
   StreamSubscription<PhoneSnapshot>? _sub;
   Timer? _ticker;
 
@@ -62,11 +63,13 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     final snapshot = await _bridge.getState();
     final compact = await _bridge.getCompact();
     final connected = await _bridge.watchConnected();
+    final version = await _bridge.appVersion();
     if (!mounted) return;
     setState(() {
       _snapshot = snapshot;
       _compact = compact;
       _watchConnected = connected;
+      _version = version;
       _loaded = true;
     });
   }
@@ -124,7 +127,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           : ListView(
               padding: const EdgeInsets.only(bottom: 32),
               children: [
-                SyncRow(state: state, watchConnected: _watchConnected, onSync: _bridge.syncNow),
+                SyncRow(state: state, watchConnected: _watchConnected, onSync: _bridge.syncNow, version: _version),
                 FavoritesSection(
                   state: state,
                   compact: _compact,
@@ -255,11 +258,18 @@ class _TokenSetupState extends State<TokenSetup> {
 
 /// One-line sync summary that expands to the details and a Sync now button.
 class SyncRow extends StatefulWidget {
-  const SyncRow({super.key, required this.state, required this.watchConnected, required this.onSync});
+  const SyncRow({
+    super.key,
+    required this.state,
+    required this.watchConnected,
+    required this.onSync,
+    this.version = '',
+  });
 
   final ViewState state;
   final bool? watchConnected;
   final Future<void> Function() onSync;
+  final String version;
 
   @override
   State<SyncRow> createState() => _SyncRowState();
@@ -361,6 +371,7 @@ class _SyncRowState extends State<SyncRow> {
                       color: theme.colorScheme.tertiary,
                     ),
                   if (state.error != null) _line(Icons.error_outline, state.error!, color: theme.colorScheme.error),
+                  if (widget.version.isNotEmpty) _line(Icons.info_outline, 'Track Watch ${widget.version}'),
                 ],
               ),
             ),

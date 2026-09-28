@@ -110,6 +110,9 @@ class FakeWatchBridge implements WatchBridge {
   Future<Map<String, dynamic>> loadUiState() async => {...uiState};
 
   @override
+  Future<String> appVersion() async => '1.1.0 (2)';
+
+  @override
   Future<void> saveUiState(Map<String, dynamic> state) async => uiState = {...state};
 }
 
@@ -158,6 +161,9 @@ class FakePhoneBridge implements PhoneBridge {
 
   @override
   Future<bool> getCompact() async => compact;
+
+  @override
+  Future<String> appVersion() async => '1.1.0 (2)';
 
   @override
   Future<void> setCompact(bool compact) async => this.compact = compact;

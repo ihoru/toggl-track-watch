@@ -31,6 +31,9 @@ abstract class WatchBridge {
 
   /// Last page and scroll positions, kept across app launches.
   Future<Map<String, dynamic>> loadUiState();
+
+  /// Installed app version, e.g. "1.1.0 (2)".
+  Future<String> appVersion();
   Future<void> saveUiState(Map<String, dynamic> state);
 }
 
@@ -76,6 +79,9 @@ class ChannelWatchBridge implements WatchBridge {
   Future<String?> textInput(String label) => _methods.invokeMethod<String>('textInput', {'label': label});
 
   @override
+  Future<String> appVersion() async => await _methods.invokeMethod<String>('appVersion') ?? '';
+
+  @override
   Future<Map<String, dynamic>> loadUiState() async {
     final json = await _methods.invokeMethod<String>('getUiState') ?? '{}';
     return (jsonDecode(json) as Map).cast<String, dynamic>();
@@ -91,6 +97,10 @@ class WatchModel extends ChangeNotifier {
   WatchModel(this.bridge) {
     _subs = [bridge.updates.listen(_set), bridge.ambient.listen(_onAmbient)];
     bridge.getState().then(_set);
+    bridge.appVersion().then((v) {
+      version = v;
+      notifyListeners();
+    });
     bridge.loadUiState().then((ui) {
       _ui = ui;
       _uiLoaded = true;
@@ -105,6 +115,9 @@ class WatchModel extends ChangeNotifier {
   bool _uiLoaded = false;
   Map<String, dynamic> _ui = {};
   Timer? _saveTimer;
+
+  /// Installed app version, shown on the Sync page.
+  String version = '';
 
   /// True while the watch shows the dimmed, low-power version of the app.
   bool ambient = false;

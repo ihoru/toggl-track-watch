@@ -80,6 +80,10 @@ class MainActivity : FlutterActivity() {
                     uiPrefs.edit().putBoolean("compact", call.argument<Boolean>("compact") == true).apply()
                     result.success(null)
                 }
+                "appVersion" -> {
+                    val info = packageManager.getPackageInfo(packageName, 0)
+                    result.success("${info.versionName} (${info.longVersionCode})")
+                }
                 "watchConnected" -> scope.launch {
                     val nodes = withTimeoutOrNull(3_000) {
                         runCatching { Wearable.getNodeClient(this@MainActivity).connectedNodes.await() }.getOrNull()

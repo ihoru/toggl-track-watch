@@ -63,6 +63,8 @@ void main() {
     await tapText(tester, 'Open on phone');
     expect(bridge.calls.last, 'openOnPhone');
     expect(find.text('Opened on phone'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Track Watch 1.1.0 (2)'), 50, scrollable: find.byType(Scrollable).last);
+    expect(find.text('Track Watch 1.1.0 (2)'), findsOneWidget);
 
     // The last page is remembered.
     await tester.pump(const Duration(seconds: 1));
