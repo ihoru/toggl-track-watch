@@ -66,16 +66,34 @@ jobs:
             echo "No signing secrets; using the runner's debug key."
           fi
 
-      - name: Build phone APK
-        run: flutter build apk --release --flavor phone -t lib/main_phone.dart
-      - name: Build watch APK
-        run: flutter build apk --release --flavor wear -t lib/main_wear.dart
+      # One APK per CPU type instead of one "fat" APK with all of them: the Pixel phone and
+      # watch only need arm64; x86_64 is built for the emulator smoke tests.
+      - name: Build phone APKs
+        run: >-
+          flutter build apk --release --flavor phone -t lib/main_phone.dart
+          --split-per-abi --target-platform android-arm64,android-x64
+          --split-debug-info=build/symbols/phone
+      - name: Build watch APKs
+        run: >-
+          flutter build apk --release --flavor wear -t lib/main_wear.dart
+          --split-per-abi --target-platform android-arm64,android-x64
+          --split-debug-info=build/symbols/wear
+
+      - name: Collect APKs
+        run: |
+          ls -l build/app/outputs/flutter-apk/
+          mkdir -p dist smoke
+          for f in phone wear; do
+            cp build/app/outputs/flutter-apk/app-arm64-v8a-$f-release.apk "dist/track-watch-$f.apk"
+            cp build/app/outputs/flutter-apk/app-x86_64-$f-release.apk "smoke/app-$f-release.apk"
+          done
+          ls -lh dist
 
       - name: Check both APKs have the same signature
         run: |
           APKSIGNER="$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner"
           for f in phone wear; do
-            "$APKSIGNER" verify --print-certs "build/app/outputs/flutter-apk/app-$f-release.apk" | grep 'SHA-256' | tee "sig-$f.txt"
+            "$APKSIGNER" verify --print-certs "dist/track-watch-$f.apk" | grep 'SHA-256' | tee "sig-$f.txt"
           done
           diff sig-phone.txt sig-wear.txt
 
@@ -86,9 +104,13 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: track-watch-apks
-          path: |
-            build/app/outputs/flutter-apk/app-phone-release.apk
-            build/app/outputs/flutter-apk/app-wear-release.apk
+          path: dist/*.apk
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: smoke-test-apks
+          path: smoke/*.apk
+          retention-days: 3
 
   # Launches each APK in an emulator and captures crashes, logs and a screenshot.
   smoke-test:
@@ -107,7 +129,7 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
-          name: track-watch-apks
+          name: smoke-test-apks
 
       - name: Enable KVM
         run: |

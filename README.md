@@ -44,11 +44,13 @@ Requires Flutter 3.47+ and the Android SDK.
 ```sh
 flutter pub get
 flutter test
-flutter build apk --release --flavor phone -t lib/main_phone.dart
-flutter build apk --release --flavor wear  -t lib/main_wear.dart
+flutter build apk --release --flavor phone -t lib/main_phone.dart --split-per-abi --target-platform android-arm64
+flutter build apk --release --flavor wear  -t lib/main_wear.dart  --split-per-abi --target-platform android-arm64
 ```
 
-The APKs are written to `build/app/outputs/flutter-apk/app-phone-release.apk` and `app-wear-release.apk`.
+The APKs are written to `build/app/outputs/flutter-apk/app-arm64-v8a-phone-release.apk` and
+`app-arm64-v8a-wear-release.apk` (arm64 only, which Pixel phones and watches use, to keep them small).
+In the CI artifact they are named `track-watch-phone.apk` and `track-watch-wear.apk`.
 GitHub Actions (`.github/workflows/build.yml`) runs the tests and builds both APKs as a downloadable
 artifact on every push.
 
@@ -75,12 +77,12 @@ The phone and watch apps only see each other if **both APKs are signed with the 
 
 ```sh
 # Phone (USB or wireless debugging)
-adb -s <phone> install build/app/outputs/flutter-apk/app-phone-release.apk
+adb -s <phone> install track-watch-phone.apk
 
 # Watch: enable Developer options → ADB debugging + Wireless debugging on the watch, then
 adb pair <watch-ip>:<pair-port>        # code shown on the watch
 adb connect <watch-ip>:<port>
-adb -s <watch-ip>:<port> install build/app/outputs/flutter-apk/app-wear-release.apk
+adb -s <watch-ip>:<port> install track-watch-wear.apk
 ```
 
 Then:
