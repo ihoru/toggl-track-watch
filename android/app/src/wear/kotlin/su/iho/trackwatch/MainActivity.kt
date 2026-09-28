@@ -88,6 +88,10 @@ class MainActivity : FlutterActivity() {
                     store.delete(entryId())
                     result.success(null)
                 }
+                "setStart" -> {
+                    store.setStart(entryId(), call.argument<Number>("start")!!.toLong())
+                    result.success(null)
+                }
                 "getUiState" -> result.success(uiPrefs.getString("state", "{}"))
                 "setUiState" -> {
                     uiPrefs.edit().putString("state", call.argument<String>("state") ?: "{}").apply()

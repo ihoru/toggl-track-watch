@@ -20,6 +20,9 @@ object Reducer {
                     if (it.id == cmd.entryId) it.copy(description = cmd.description ?: it.description, projectId = cmd.projectId, pending = true) else it
                 }
                 CommandType.DELETE -> result.removeAll { it.id == cmd.entryId }
+                CommandType.SET_START -> result.replaceAll {
+                    if (it.id == cmd.entryId && cmd.start != null) it.copy(start = cmd.start, pending = true) else it
+                }
             }
         }
         return result.sortedByDescending { it.start }
@@ -42,6 +45,10 @@ object CommandFactory {
         Command(newId(), CommandType.UPDATE, entryId, now, description, projectId)
 
     fun delete(entryId: String, now: Long) = Command(newId(), CommandType.DELETE, entryId, now)
+
+    /** Moves the entry's start time; it can't be later than [now]. */
+    fun setStart(entryId: String, start: Long, now: Long) =
+        Command(newId(), CommandType.SET_START, entryId, now, start = minOf(start, now))
 }
 
 /**
@@ -58,6 +65,10 @@ object QueueLogic {
                 CommandType.DELETE -> return queue.filterNot { it.entryId == cmd.entryId }
                 CommandType.UPDATE -> return queue.toMutableList().also {
                     it[startIndex] = it[startIndex].copy(description = cmd.description, projectId = cmd.projectId)
+                }
+                // Not created in Toggl yet: create it with the new start time instead.
+                CommandType.SET_START -> if (cmd.start != null) return queue.toMutableList().also {
+                    it[startIndex] = it[startIndex].copy(at = cmd.start)
                 }
                 else -> {}
             }

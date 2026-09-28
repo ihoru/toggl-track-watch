@@ -193,4 +193,29 @@ void main() {
     await settle(tester);
     expect(platformCalls, contains('SystemNavigator.pop'));
   });
+
+  testWidgets('edit start time of the running timer', (tester) async {
+    final state = sampleState();
+    final start = state.running!.start;
+    final bridge = FakeWatchBridge(state);
+    await pumpWatch(tester, bridge);
+
+    await tapText(tester, 'Coding');
+    await tapText(tester, 'Edit start time');
+    await tapText(tester, '−5');
+    await tapText(tester, '−1');
+    await tapText(tester, 'Save');
+    final expected = start.subtract(const Duration(minutes: 6));
+    expect(bridge.calls.last, 'setStart:10:${expected.millisecondsSinceEpoch}');
+
+    // Can't move the start into the future.
+    await tapText(tester, 'Edit start time');
+    for (var i = 0; i < 3; i++) {
+      await tapText(tester, '+5');
+    }
+    await tapText(tester, 'Save');
+    final saved = int.parse(bridge.calls.last.split(':').last);
+    expect(saved, lessThanOrEqualTo(DateTime.now().millisecondsSinceEpoch));
+    expect(saved, greaterThan(start.millisecondsSinceEpoch));
+  });
 }

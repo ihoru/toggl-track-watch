@@ -49,6 +49,23 @@ class CommandsTest {
     }
 
     @Test
+    fun setStartMovesStartAndNeverIntoTheFuture() {
+        val cmd = CommandFactory.setStart("2", 2_000, 5_000)
+        assertEquals(2_000L, Reducer.apply(listOf(running), listOf(cmd)).single().start)
+        assertTrue(Reducer.apply(listOf(running), listOf(cmd)).single().pending)
+        assertEquals(5_000L, CommandFactory.setStart("2", 9_000, 5_000).start)
+        assertEquals(cmd, Command.fromJson(cmd.toJson()))
+    }
+
+    @Test
+    fun setStartOnQueuedLocalEntryChangesItsStart() {
+        val start = CommandFactory.start(emptyList(), "x", null, 10_000).single()
+        val queue = QueueLogic.enqueue(listOf(start), CommandFactory.setStart(start.entryId, 4_000, 11_000))
+        assertEquals(1, queue.size)
+        assertEquals(4_000L, queue.single().at)
+    }
+
+    @Test
     fun queueIgnoresDuplicates() {
         val stop = CommandFactory.stop("1", 1_000)
         assertEquals(1, QueueLogic.enqueue(QueueLogic.enqueue(emptyList(), stop), stop).size)

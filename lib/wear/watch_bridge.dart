@@ -21,6 +21,9 @@ abstract class WatchBridge {
   Future<void> stop(String entryId);
   Future<void> update(String entryId, String description, int? projectId);
   Future<void> delete(String entryId);
+
+  /// Moves the entry's start time (never later than now).
+  Future<void> setStart(String entryId, DateTime start);
   Future<void> refresh();
 
   /// Opens the phone app. Returns false when the phone can't be reached.
@@ -68,6 +71,10 @@ class ChannelWatchBridge implements WatchBridge {
 
   @override
   Future<void> delete(String entryId) => _methods.invokeMethod('delete', {'entryId': entryId});
+
+  @override
+  Future<void> setStart(String entryId, DateTime start) =>
+      _methods.invokeMethod('setStart', {'entryId': entryId, 'start': start.millisecondsSinceEpoch});
 
   @override
   Future<void> refresh() => _methods.invokeMethod('refresh');

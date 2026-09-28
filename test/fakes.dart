@@ -86,6 +86,10 @@ class FakeWatchBridge implements WatchBridge {
   Future<void> delete(String entryId) async => calls.add('delete:$entryId');
 
   @override
+  Future<void> setStart(String entryId, DateTime start) async =>
+      calls.add('setStart:$entryId:${start.millisecondsSinceEpoch}');
+
+  @override
   Future<void> refresh() async => calls.add('refresh');
 
   @override

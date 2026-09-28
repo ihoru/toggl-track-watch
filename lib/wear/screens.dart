@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -477,6 +479,12 @@ class EntryScreen extends StatelessWidget {
             color: Colors.lightGreenAccent,
             onTap: () => startTimer(context, e.description, e.projectId),
           ),
+        if (e.isRunning)
+          WearChip(
+            label: 'Edit start time',
+            icon: Icons.schedule,
+            onTap: () => _push(context, StartTimeScreen(entry: e)),
+          ),
         WearChip(
           label: 'Edit',
           icon: Icons.edit,
@@ -555,6 +563,118 @@ class _EditScreenState extends State<EditScreen> {
           },
         ),
       ],
+    );
+  }
+}
+
+/// Moves the start time of an entry: turn the crown (one minute per step) or tap ±1 / ±5.
+class StartTimeScreen extends StatefulWidget {
+  const StartTimeScreen({super.key, required this.entry});
+
+  final TimeEntry entry;
+
+  @override
+  State<StartTimeScreen> createState() => _StartTimeScreenState();
+}
+
+class _StartTimeScreenState extends State<StartTimeScreen> {
+  /// Crown scroll distance (logical pixels) per minute.
+  static const _pixelsPerMinute = 18.0;
+
+  late DateTime _start = widget.entry.start;
+  double _crown = 0;
+  StreamSubscription<double>? _rotary;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _rotary?.cancel();
+    _rotary = WatchScope.read(context).bridge.rotary.listen(_onRotary);
+  }
+
+  void _onRotary(double delta) {
+    _crown += delta;
+    final minutes = (_crown / _pixelsPerMinute).truncate();
+    if (minutes == 0) return;
+    _crown -= minutes * _pixelsPerMinute;
+    _move(minutes);
+  }
+
+  void _move(int minutes) {
+    final now = DateTime.now();
+    var next = _start.add(Duration(minutes: minutes));
+    if (next.isAfter(now)) next = now;
+    if (next == _start) return;
+    HapticFeedback.selectionClick();
+    setState(() => _start = next);
+  }
+
+  @override
+  void dispose() {
+    _rotary?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final size = MediaQuery.sizeOf(context);
+    Widget step(String label, int minutes) => TextButton(
+      style: TextButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        minimumSize: const Size(36, 32),
+        padding: const EdgeInsets.symmetric(horizontal: 6),
+      ),
+      onPressed: () => _move(minutes),
+      child: Text(label),
+    );
+    return Scaffold(
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragEnd: (d) {
+          if ((d.primaryVelocity ?? 0) > 300) Navigator.of(context).maybePop();
+        },
+        child: Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(horizontal: size.width * 0.1, vertical: size.height * 0.1),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Start time', style: theme.textTheme.labelMedium?.copyWith(color: Colors.white70)),
+                Text(
+                  formatDay(context, DateTime(_start.year, _start.month, _start.day)),
+                  style: theme.textTheme.bodySmall,
+                ),
+                Text(
+                  formatTime(context, _start),
+                  style: theme.textTheme.displaySmall?.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+                ),
+                Ticking(
+                  builder: (context) => Text(
+                    'running ${formatClock(DateTime.now().difference(_start))}',
+                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.white60),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [step('−5', -5), step('−1', -1), step('+1', 1), step('+5', 5)],
+                ),
+                const SizedBox(height: 4),
+                FilledButton.icon(
+                  icon: const Icon(Icons.check),
+                  label: const Text('Save'),
+                  onPressed: () {
+                    HapticFeedback.heavyImpact();
+                    WatchScope.read(context).bridge.setStart(widget.entry.id, _start);
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

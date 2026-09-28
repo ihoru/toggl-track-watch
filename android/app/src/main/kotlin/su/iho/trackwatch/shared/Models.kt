@@ -76,7 +76,7 @@ data class TimeEntry(
     }
 }
 
-enum class CommandType { START, STOP, UPDATE, DELETE }
+enum class CommandType { START, STOP, UPDATE, DELETE, SET_START }
 
 /**
  * A user action. [at] is when the user tapped it; it is used as start/stop time
@@ -89,6 +89,8 @@ data class Command(
     val at: Long,
     val description: String? = null,
     val projectId: Long? = null,
+    /** New start time (epoch ms) for [CommandType.SET_START]. */
+    val start: Long? = null,
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("id", id)
@@ -97,6 +99,7 @@ data class Command(
         .put("at", at)
         .put("description", description ?: JSONObject.NULL)
         .put("projectId", projectId ?: JSONObject.NULL)
+        .put("start", start ?: JSONObject.NULL)
 
     companion object {
         fun fromJson(o: JSONObject) = Command(
@@ -106,6 +109,7 @@ data class Command(
             at = o.getLong("at"),
             description = if (o.isNull("description")) null else o.optString("description"),
             projectId = o.optLongOrNull("projectId"),
+            start = o.optLongOrNull("start"),
         )
     }
 }

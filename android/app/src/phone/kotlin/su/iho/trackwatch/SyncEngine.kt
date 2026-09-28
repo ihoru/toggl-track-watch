@@ -107,6 +107,15 @@ class SyncEngine(private val context: Context) {
                 api.delete(wid, id)
                 store.removeEntry(id.toString())
             }
+            CommandType.SET_START -> {
+                val start = cmd.start ?: return
+                val entry = store.snapshot.firstOrNull { it.id == id.toString() }
+                val fields = JSONObject().put("start", TogglApi.iso(start))
+                val stop = entry?.stop
+                // Running entries keep a negative duration; stopped ones get the new length.
+                fields.put("duration", if (stop == null) -1 else (stop - start) / 1000)
+                store.upsertEntry(api.update(wid, id, fields))
+            }
             CommandType.START -> Unit
         }
     }
