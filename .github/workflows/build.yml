@@ -41,7 +41,21 @@ jobs:
           KEY_PASSWORD: ${{ secrets.TRACKWATCH_KEY_PASSWORD }}
         run: |
           if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/trackwatch.jks"
+            # Tolerate line breaks and spaces added when pasting the secrets.
+            KEYSTORE_PASSWORD=$(printf '%s' "$KEYSTORE_PASSWORD" | tr -d '\r\n')
+            KEY_ALIAS=$(printf '%s' "$KEY_ALIAS" | tr -d ' \r\n\t')
+            KEY_PASSWORD=$(printf '%s' "$KEY_PASSWORD" | tr -d '\r\n')
+            CLEAN=$(printf '%s' "$KEYSTORE_BASE64" | tr -d ' \r\n\t')
+            echo "Keystore secret: ${#CLEAN} base64 characters (expected 5676)."
+            if ! printf '%s' "$CLEAN" | base64 -d > "$RUNNER_TEMP/trackwatch.jks"; then
+              echo "::error::TRACKWATCH_KEYSTORE_BASE64 is not valid base64 (probably cut off while pasting)."
+              exit 1
+            fi
+            if ! keytool -list -keystore "$RUNNER_TEMP/trackwatch.jks" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" > /dev/null; then
+              echo "::error::The keystore could not be opened with TRACKWATCH_KEYSTORE_PASSWORD / TRACKWATCH_KEY_ALIAS."
+              exit 1
+            fi
+            keytool -list -v -keystore "$RUNNER_TEMP/trackwatch.jks" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" | grep 'SHA256:'
             {
               echo "TRACKWATCH_KEYSTORE=$RUNNER_TEMP/trackwatch.jks"
               echo "TRACKWATCH_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
