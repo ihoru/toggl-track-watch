@@ -89,6 +89,11 @@ Then:
 
 ## Notes
 
+* Phone favorites list: swipe right to start a favorite, swipe left to delete it (asks first), hold and drag
+  to reorder, and switch between the normal and compact view with the icon in the Favorites header.
+  Starting opens the official Toggl app through its `toggl://tracker/timeEntry/start?...` link. If no
+  installed app handles that link, Track Watch starts the timer through its own Toggl connection instead.
+
 * On the watch, swipe right to go back. The system swipe-to-dismiss is disabled so the gesture
   works per screen instead of closing the app.
 * The phone refreshes from Toggl when the watch app or tile opens, after each change, and every

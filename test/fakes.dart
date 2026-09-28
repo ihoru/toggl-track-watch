@@ -120,4 +120,20 @@ class FakePhoneBridge implements PhoneBridge {
 
   @override
   Future<bool> watchConnected() async => true;
+
+  final started = <Favorite>[];
+  StartResult startResult = StartResult.api;
+  bool compact = false;
+
+  @override
+  Future<StartResult> startTimer(Favorite favorite) async {
+    started.add(favorite);
+    return startResult;
+  }
+
+  @override
+  Future<bool> getCompact() async => compact;
+
+  @override
+  Future<void> setCompact(bool compact) async => this.compact = compact;
 }

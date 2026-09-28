@@ -1,6 +1,10 @@
 package su.iho.trackwatch
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import com.google.android.gms.wearable.Wearable
+import su.iho.trackwatch.shared.CommandFactory
 import su.iho.trackwatch.shared.Favorite
 import su.iho.trackwatch.shared.ViewState
 import su.iho.trackwatch.shared.objects
@@ -23,6 +27,7 @@ import org.json.JSONObject
 class MainActivity : FlutterActivity() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val store by lazy { PhoneStore.get(this) }
+    private val uiPrefs by lazy { getSharedPreferences("ui", MODE_PRIVATE) }
     private var stateListener: ((ViewState) -> Unit)? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -65,6 +70,16 @@ class MainActivity : FlutterActivity() {
                     Sync.now(this, refresh = true)
                     result.success(null)
                 }
+                "startTimer" -> {
+                    val description = call.argument<String>("description").orEmpty()
+                    val projectId = call.argument<Number>("projectId")?.toLong()
+                    result.success(startTimer(description, projectId))
+                }
+                "getCompact" -> result.success(uiPrefs.getBoolean("compact", false))
+                "setCompact" -> {
+                    uiPrefs.edit().putBoolean("compact", call.argument<Boolean>("compact") == true).apply()
+                    result.success(null)
+                }
                 "watchConnected" -> scope.launch {
                     val nodes = withTimeoutOrNull(3_000) {
                         runCatching { Wearable.getNodeClient(this@MainActivity).connectedNodes.await() }.getOrNull()
@@ -92,6 +107,36 @@ class MainActivity : FlutterActivity() {
             Sync.schedulePeriodic(this)
             Sync.now(this, refresh = true)
         }
+    }
+
+    /**
+     * Starts a timer in the official Toggl app via its start link. When no installed app handles the
+     * link, starts it through our own queue instead (same path as the watch). Returns "toggl" or "api".
+     */
+    private fun startTimer(description: String, projectId: Long?): String {
+        val workspaceId = store.account?.workspaceId
+        if (workspaceId != null) {
+            val uri = Uri.Builder()
+                .scheme("toggl")
+                .authority("tracker")
+                .path("/timeEntry/start")
+                .appendQueryParameter("workspaceId", workspaceId.toString())
+                .appendQueryParameter("description", description)
+                .apply { if (projectId != null) appendQueryParameter("projectId", projectId.toString()) }
+                .build()
+            val intent = Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (packageManager.resolveActivity(intent, 0) != null) {
+                try {
+                    startActivity(intent)
+                    return "toggl"
+                } catch (e: ActivityNotFoundException) {
+                    // Fall through to our own API.
+                }
+            }
+        }
+        store.enqueue(CommandFactory.start(store.viewState().entries, description, projectId, System.currentTimeMillis()))
+        Sync.now(this)
+        return "api"
     }
 
     private fun stateJson(state: ViewState): String {

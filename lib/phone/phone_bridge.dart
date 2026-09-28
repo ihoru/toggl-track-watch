@@ -47,7 +47,16 @@ abstract class PhoneBridge {
   Future<void> setFavorites(List<Favorite> favorites);
   Future<void> syncNow();
   Future<bool> watchConnected();
+
+  /// Starts [favorite] in the official Toggl app via its start link, or through Track Watch's own
+  /// Toggl connection when no app handles the link. Returns [StartResult.togglApp] or [StartResult.api].
+  Future<StartResult> startTimer(Favorite favorite);
+
+  Future<bool> getCompact();
+  Future<void> setCompact(bool compact);
 }
+
+enum StartResult { togglApp, api }
 
 class ChannelPhoneBridge implements PhoneBridge {
   static const _methods = MethodChannel('trackwatch/phone');
@@ -78,4 +87,16 @@ class ChannelPhoneBridge implements PhoneBridge {
 
   @override
   Future<bool> watchConnected() async => await _methods.invokeMethod<bool>('watchConnected') ?? false;
+
+  @override
+  Future<StartResult> startTimer(Favorite favorite) async {
+    final result = await _methods.invokeMethod<String>('startTimer', favorite.toJson());
+    return result == 'toggl' ? StartResult.togglApp : StartResult.api;
+  }
+
+  @override
+  Future<bool> getCompact() async => await _methods.invokeMethod<bool>('getCompact') ?? false;
+
+  @override
+  Future<void> setCompact(bool compact) => _methods.invokeMethod('setCompact', {'compact': compact});
 }
