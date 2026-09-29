@@ -95,7 +95,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
     implementation("androidx.core:core-ktx:1.15.0")
 
-    "phoneImplementation"("androidx.work:work-runtime-ktx:2.10.0")
+    "phoneImplementation"("androidx.work:work-runtime-ktx:2.12.0")
     "phoneImplementation"("com.squareup.okhttp3:okhttp:4.12.0")
     "phoneImplementation"("com.google.android.gms:play-services-auth-blockstore:16.4.0")
 
