@@ -100,9 +100,9 @@ dependencies {
     "phoneImplementation"("com.google.android.gms:play-services-auth-blockstore:16.4.0")
 
     "wearImplementation"("androidx.wear.tiles:tiles:1.4.1")
-    "wearImplementation"("androidx.wear.protolayout:protolayout:1.2.1")
-    "wearImplementation"("androidx.wear.protolayout:protolayout-expression:1.2.1")
-    "wearImplementation"("androidx.wear.protolayout:protolayout-material:1.2.1")
+    "wearImplementation"("androidx.wear.protolayout:protolayout:1.4.2")
+    "wearImplementation"("androidx.wear.protolayout:protolayout-expression:1.4.2")
+    "wearImplementation"("androidx.wear.protolayout:protolayout-material:1.4.2")
     "wearImplementation"("androidx.wear.watchface:watchface-complications-data-source-ktx:1.2.1")
     "wearImplementation"("androidx.wear:wear-ongoing:1.0.0")
     "wearImplementation"("androidx.wear:wear-input:1.1.0")
