@@ -93,7 +93,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-wearable:18.2.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
-    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.core:core-ktx:1.19.1")
 
     "phoneImplementation"("androidx.work:work-runtime-ktx:2.10.0")
     "phoneImplementation"("com.squareup.okhttp3:okhttp:4.12.0")
