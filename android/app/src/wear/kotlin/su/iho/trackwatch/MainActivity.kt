@@ -97,17 +97,18 @@ class MainActivity : FlutterActivity() {
                     uiPrefs.edit().putString("state", call.argument<String>("state") ?: "{}").apply()
                     result.success(null)
                 }
-                "openOnPhone" -> {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("trackwatch://open"))
-                        .addCategory(Intent.CATEGORY_BROWSABLE)
-                    val future = RemoteActivityHelper(this, mainExecutor).startRemoteActivity(intent)
-                    future.addListener({
-                        result.success(runCatching { future.get() }.isSuccess)
-                    }, mainExecutor)
+                "openOnPhone" -> openOnPhone("trackwatch://open", result)
+                "openUrlOnPhone" -> openOnPhone(call.argument<String>("url")!!, result)
+                "getSettings" -> result.success(WatchSettings.all(this))
+                "setSetting" -> {
+                    WatchSettings.set(this, call.argument<String>("key")!!, call.argument<Any>("value")!!)
+                    if (call.argument<String>("key") == WatchSettings.ONGOING) OngoingTimer.refresh(this, store.view())
+                    result.success(null)
                 }
                 "appVersion" -> {
                     val info = packageManager.getPackageInfo(packageName, 0)
-                    result.success("${info.versionName} (${info.longVersionCode})")
+                    // versionCode is build × 10 (+1 on the watch); show the pubspec build number.
+                    result.success("${info.versionName} (${info.longVersionCode / 10})")
                 }
                 "refresh" -> {
                     store.requestRefresh()
@@ -173,6 +174,13 @@ class MainActivity : FlutterActivity() {
             return true
         }
         return super.dispatchGenericMotionEvent(event)
+    }
+
+    /** Opens [url] on the paired phone (app link, Play Store or web page). Reports whether it worked. */
+    private fun openOnPhone(url: String, result: MethodChannel.Result) {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE)
+        val future = RemoteActivityHelper(this, mainExecutor).startRemoteActivity(intent)
+        future.addListener({ result.success(runCatching { future.get() }.isSuccess) }, mainExecutor)
     }
 
     @Deprecated("Deprecated in Java")

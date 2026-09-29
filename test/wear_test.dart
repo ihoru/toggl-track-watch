@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trackwatch/src/models.dart';
+import 'package:trackwatch/wear/screens.dart';
 import 'package:trackwatch/wear/wear_app.dart';
 
 import 'fakes.dart';
@@ -111,9 +112,19 @@ void main() {
     expect(bridge.calls.last, 'delete:10');
   });
 
-  testWidgets('unconfigured watch asks to set up the phone', (tester) async {
-    await pumpWatch(tester, FakeWatchBridge(const ViewState()));
-    expect(find.textContaining('add your Toggl API token'), findsOneWidget);
+  testWidgets('unconfigured watch offers to install or open the phone app', (tester) async {
+    final bridge = FakeWatchBridge(const ViewState());
+    await pumpWatch(tester, bridge);
+    expect(find.textContaining('Install it on your phone'), findsOneWidget);
+
+    await tapText(tester, 'Install on phone');
+    expect(bridge.calls.last, 'openUrl:https://github.com/ihoru/toggl-track-watch/releases/latest');
+    expect(find.text('Opened on phone'), findsOneWidget);
+
+    bridge.phoneReachable = false;
+    await tapText(tester, 'Open on phone');
+    expect(bridge.calls.last, 'openOnPhone');
+    expect(find.text('Phone not reachable'), findsOneWidget);
   });
 
   testWidgets('new timer with voice description and project', (tester) async {
@@ -215,5 +226,55 @@ void main() {
     final saved = int.parse(bridge.calls.last.split(':').last);
     expect(saved, lessThanOrEqualTo(DateTime.now().millisecondsSinceEpoch));
     expect(saved, greaterThan(start.millisecondsSinceEpoch));
+  });
+
+  testWidgets('settings: toggles are saved and the crown step applies', (tester) async {
+    final state = sampleState();
+    final start = state.running!.start;
+    final bridge = FakeWatchBridge(state);
+    await pumpWatch(tester, bridge);
+    for (var i = 0; i < 4; i++) {
+      await nextPage(tester);
+    }
+
+    await tapText(tester, 'Settings');
+    await tapText(tester, 'Timer notification');
+    expect(bridge.settings['ongoing'], false);
+    await tapText(tester, 'Vibration');
+    expect(bridge.settings['haptics'], false);
+    await tapText(tester, 'Crown step: 1 min');
+    expect(bridge.settings['crownStep'], 5);
+    expect(find.text('Crown step: 5 min'), findsOneWidget);
+    await tapText(tester, 'Source code');
+    expect(bridge.calls.last, 'openUrl:https://github.com/ihoru/toggl-track-watch');
+
+    // Back to Now, open the start-time editor and turn the crown two steps back: 10 minutes.
+    Navigator.of(tester.element(find.byType(SettingsScreen))).pop();
+    await settle(tester);
+    for (var i = 0; i < 4; i++) {
+      await tester.fling(find.byType(PageView), const Offset(200, 0), 1000);
+      await settle(tester);
+    }
+    await tapText(tester, 'Coding');
+    await tapText(tester, 'Edit start time');
+    bridge.turnCrown(-40);
+    await settle(tester);
+    await tapText(tester, 'Save');
+    final expected = start.subtract(const Duration(minutes: 10));
+    expect(bridge.calls.last, 'setStart:10:${expected.millisecondsSinceEpoch}');
+  });
+
+  testWidgets('saved settings are loaded on start', (tester) async {
+    final bridge = FakeWatchBridge(sampleState())..settings.addAll({'crownStep': 5, 'haptics': false});
+    await pumpWatch(tester, bridge);
+    for (var i = 0; i < 4; i++) {
+      await nextPage(tester);
+    }
+    await tapText(tester, 'Settings');
+    expect(find.text('Crown step: 5 min'), findsOneWidget);
+    final vibration = tester.widget<Switch>(
+      find.descendant(of: find.widgetWithText(InkWell, 'Vibration'), matching: find.byType(Switch)),
+    );
+    expect(vibration.value, isFalse);
   });
 }

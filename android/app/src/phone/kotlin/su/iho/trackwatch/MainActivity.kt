@@ -87,7 +87,8 @@ class MainActivity : FlutterActivity() {
                 }
                 "appVersion" -> {
                     val info = packageManager.getPackageInfo(packageName, 0)
-                    result.success("${info.versionName} (${info.longVersionCode})")
+                    // versionCode is build × 10 (+1 on the watch); show the pubspec build number.
+                    result.success("${info.versionName} (${info.longVersionCode / 10})")
                 }
                 "watchConnected" -> scope.launch {
                     val nodes = withTimeoutOrNull(3_000) {

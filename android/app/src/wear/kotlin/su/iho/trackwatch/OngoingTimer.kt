@@ -23,11 +23,18 @@ object OngoingTimer {
     private const val NOTIFICATION_ID = 1
     private var shownKey: String? = null
 
+    /** Re-applies the notification after the setting changed. */
+    @Synchronized
+    fun refresh(context: Context, state: ViewState) {
+        shownKey = null
+        update(context, state)
+    }
+
     @Synchronized
     fun update(context: Context, state: ViewState) {
         val manager = NotificationManagerCompat.from(context)
         val running = state.running
-        if (running == null) {
+        if (running == null || !WatchSettings.showOngoing(context)) {
             manager.cancel(NOTIFICATION_ID)
             shownKey = null
             return

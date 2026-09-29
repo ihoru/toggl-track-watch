@@ -1,0 +1,28 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Steps to reproduce, what you expected and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: App versions
+      description: From the phone's Sync details and the watch's Sync page, e.g. "phone 1.4.0 (8), watch 1.4.0 (8)".
+    validations:
+      required: true
+  - type: input
+    id: devices
+    attributes:
+      label: Devices
+      description: Phone and watch model with Android / Wear OS version, e.g. "Pixel 9, Android 16; Pixel Watch 4, Wear OS 6".
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or logs
+      description: Please remove anything private (token, entry names) first.

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../src/format.dart';
+import '../src/links.dart';
 import '../src/models.dart';
 import 'watch_bridge.dart';
 import 'widgets.dart';
@@ -91,17 +92,7 @@ class _HomePagerState extends State<HomePager> {
     if (!model.loaded || controller == null) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    if (!model.state.configured) {
-      return const RoundList(
-        swipeBack: false,
-        children: [
-          SizedBox(height: 24),
-          Icon(Icons.phone_android, size: 32),
-          SizedBox(height: 8),
-          Text('Open Track Watch on your phone and add your Toggl API token.', textAlign: TextAlign.center),
-        ],
-      );
-    }
+    if (!model.state.configured) return const SetupScreen();
     final bottom = MediaQuery.sizeOf(context).height * 0.05;
     return Stack(
       children: [
@@ -159,12 +150,12 @@ class NowPage extends StatelessWidget {
             entry: running,
             state: state,
             onStop: () {
-              HapticFeedback.heavyImpact();
+              WatchScope.read(context).haptic();
               model.bridge.stop(running.id);
             },
             onCancel: () async {
               if (!await confirm(context, 'Discard this timer?')) return;
-              HapticFeedback.heavyImpact();
+              model.haptic();
               await model.bridge.delete(running.id);
             },
             onTap: () => _push(context, EntryScreen(entry: running)),
@@ -386,6 +377,7 @@ class _SyncPageState extends State<SyncPage> {
             if (mounted) setState(() => _message = ok ? 'Opened on phone' : 'Phone not reachable');
           },
         ),
+        WearChip(label: 'Settings', icon: Icons.settings, onTap: () => _push(context, const SettingsScreen())),
         if (model.version.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -395,6 +387,116 @@ class _SyncPageState extends State<SyncPage> {
               style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white54),
             ),
           ),
+        if (_message != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(_message!, textAlign: TextAlign.center, style: Theme.of(context).textTheme.labelSmall),
+          ),
+      ],
+    );
+  }
+}
+
+/// Shown until the phone app is set up: the watch needs the phone app for everything.
+class SetupScreen extends StatefulWidget {
+  const SetupScreen({super.key});
+
+  @override
+  State<SetupScreen> createState() => _SetupScreenState();
+}
+
+class _SetupScreenState extends State<SetupScreen> {
+  String? _message;
+
+  Future<void> _open(Future<bool> Function() open, String done) async {
+    final ok = await open();
+    if (mounted) setState(() => _message = ok ? done : 'Phone not reachable');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bridge = WatchScope.of(context).bridge;
+    return RoundList(
+      swipeBack: false,
+      children: [
+        const Icon(Icons.phone_android, size: 32),
+        const SizedBox(height: 8),
+        const Text(
+          'Track Watch works together with its phone app. Install it on your phone and add your Toggl API token there.',
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 8),
+        WearChip(
+          label: 'Install on phone',
+          icon: Icons.download,
+          onTap: () => _open(() => bridge.openUrlOnPhone(installUrl), 'Opened on phone'),
+        ),
+        WearChip(
+          label: 'Open on phone',
+          icon: Icons.open_in_new,
+          secondary: 'If already installed',
+          onTap: () => _open(bridge.openOnPhone, 'Opened on phone'),
+        ),
+        if (_message != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(_message!, textAlign: TextAlign.center, style: Theme.of(context).textTheme.labelSmall),
+          ),
+      ],
+    );
+  }
+}
+
+/// Watch settings and About.
+class SettingsScreen extends StatefulWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  State<SettingsScreen> createState() => _SettingsScreenState();
+}
+
+class _SettingsScreenState extends State<SettingsScreen> {
+  String? _message;
+
+  Future<void> _openLink(String url) async {
+    final ok = await WatchScope.read(context).bridge.openUrlOnPhone(url);
+    if (mounted) setState(() => _message = ok ? 'Opened on phone' : 'Phone not reachable');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final model = WatchScope.of(context);
+    Widget toggle(String label, String secondary, bool value, ValueChanged<bool> onChanged) => WearChip(
+      label: label,
+      secondary: secondary,
+      onTap: () => onChanged(!value),
+      trailing: Switch(value: value, onChanged: onChanged),
+    );
+    return RoundList(
+      children: [
+        const WearHeader('Settings'),
+        toggle(
+          'Timer notification',
+          'Icon on watch face while running',
+          model.showOngoing,
+          (v) => model.setSetting('ongoing', v),
+        ),
+        toggle('Vibration', 'On start, stop and save', model.haptics, (v) => model.setSetting('haptics', v)),
+        WearChip(
+          label: 'Crown step: ${model.crownStep} min',
+          secondary: 'Editing start time · tap to change',
+          icon: Icons.av_timer,
+          onTap: () => model.setSetting('crownStep', model.crownStep == 1 ? 5 : 1),
+        ),
+        const WearHeader('About'),
+        if (model.version.isNotEmpty)
+          Text(
+            'Track Watch ${model.version}',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        WearChip(label: 'Privacy policy', icon: Icons.privacy_tip_outlined, onTap: () => _openLink(privacyUrl)),
+        WearChip(label: 'Source code', icon: Icons.code, onTap: () => _openLink(sourceUrl)),
         if (_message != null)
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -468,7 +570,7 @@ class EntryScreen extends StatelessWidget {
             icon: Icons.stop,
             color: const Color(0xFFE57373),
             onTap: () {
-              HapticFeedback.heavyImpact();
+              WatchScope.read(context).haptic();
               bridge.stop(e.id);
             },
           )
@@ -556,7 +658,7 @@ class _EditScreenState extends State<EditScreen> {
             if (creating) {
               startTimer(context, _description, _projectId);
             } else {
-              HapticFeedback.heavyImpact();
+              WatchScope.read(context).haptic();
               model.bridge.update(widget.entry!.id, _description, _projectId);
               Navigator.of(context).pop();
             }
@@ -578,7 +680,7 @@ class StartTimeScreen extends StatefulWidget {
 }
 
 class _StartTimeScreenState extends State<StartTimeScreen> {
-  /// Crown scroll distance (logical pixels) per minute.
+  /// Crown scroll distance (logical pixels) per step (1 or 5 minutes, see Settings).
   static const _pixelsPerMinute = 18.0;
 
   late DateTime _start = widget.entry.start;
@@ -594,10 +696,10 @@ class _StartTimeScreenState extends State<StartTimeScreen> {
 
   void _onRotary(double delta) {
     _crown += delta;
-    final minutes = (_crown / _pixelsPerMinute).truncate();
-    if (minutes == 0) return;
-    _crown -= minutes * _pixelsPerMinute;
-    _move(minutes);
+    final steps = (_crown / _pixelsPerMinute).truncate();
+    if (steps == 0) return;
+    _crown -= steps * _pixelsPerMinute;
+    _move(steps * WatchScope.read(context).crownStep);
   }
 
   void _move(int minutes) {
@@ -605,7 +707,7 @@ class _StartTimeScreenState extends State<StartTimeScreen> {
     var next = _start.add(Duration(minutes: minutes));
     if (next.isAfter(now)) next = now;
     if (next == _start) return;
-    HapticFeedback.selectionClick();
+    WatchScope.read(context).haptic(light: true);
     setState(() => _start = next);
   }
 
@@ -669,7 +771,7 @@ class _StartTimeScreenState extends State<StartTimeScreen> {
                   icon: const Icon(Icons.check),
                   label: const Text('Save'),
                   onPressed: () {
-                    HapticFeedback.heavyImpact();
+                    WatchScope.read(context).haptic();
                     WatchScope.read(context).bridge.setStart(widget.entry.id, _start);
                     Navigator.of(context).pop();
                   },

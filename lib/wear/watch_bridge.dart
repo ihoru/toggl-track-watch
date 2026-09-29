@@ -29,6 +29,13 @@ abstract class WatchBridge {
   /// Opens the phone app. Returns false when the phone can't be reached.
   Future<bool> openOnPhone();
 
+  /// Opens a web or Play Store link on the phone. Returns false when the phone can't be reached.
+  Future<bool> openUrlOnPhone(String url);
+
+  /// Watch settings (see WatchSettings.kt): "ongoing" (bool), "crownStep" (int), "haptics" (bool).
+  Future<Map<String, dynamic>> getSettings();
+  Future<void> setSetting(String key, Object value);
+
   /// Opens the system voice/keyboard input. Returns null when cancelled.
   Future<String?> textInput(String label);
 
@@ -83,6 +90,18 @@ class ChannelWatchBridge implements WatchBridge {
   Future<bool> openOnPhone() async => await _methods.invokeMethod<bool>('openOnPhone') ?? false;
 
   @override
+  Future<bool> openUrlOnPhone(String url) async =>
+      await _methods.invokeMethod<bool>('openUrlOnPhone', {'url': url}) ?? false;
+
+  @override
+  Future<Map<String, dynamic>> getSettings() async =>
+      (await _methods.invokeMapMethod<String, dynamic>('getSettings')) ?? {};
+
+  @override
+  Future<void> setSetting(String key, Object value) =>
+      _methods.invokeMethod('setSetting', {'key': key, 'value': value});
+
+  @override
   Future<String?> textInput(String label) => _methods.invokeMethod<String>('textInput', {'label': label});
 
   @override
@@ -108,8 +127,9 @@ class WatchModel extends ChangeNotifier {
       version = v;
       notifyListeners();
     });
-    bridge.loadUiState().then((ui) {
-      _ui = ui;
+    Future.wait([bridge.loadUiState(), bridge.getSettings()]).then((loaded) {
+      _ui = loaded[0];
+      settings = {...settings, ...loaded[1]};
       _uiLoaded = true;
       notifyListeners();
     });
@@ -122,6 +142,25 @@ class WatchModel extends ChangeNotifier {
   bool _uiLoaded = false;
   Map<String, dynamic> _ui = {};
   Timer? _saveTimer;
+
+  /// Watch settings, edited on the Settings screen.
+  Map<String, dynamic> settings = {'ongoing': true, 'crownStep': 1, 'haptics': true};
+
+  bool get showOngoing => settings['ongoing'] != false;
+  bool get haptics => settings['haptics'] != false;
+  int get crownStep => (settings['crownStep'] as num?)?.toInt() ?? 1;
+
+  void setSetting(String key, Object value) {
+    settings = {...settings, key: value};
+    notifyListeners();
+    bridge.setSetting(key, value);
+  }
+
+  /// A vibration for actions, unless turned off in Settings.
+  void haptic({bool light = false}) {
+    if (!haptics) return;
+    light ? HapticFeedback.selectionClick() : HapticFeedback.heavyImpact();
+  }
 
   /// Installed app version, shown on the Sync page.
   String version = '';
@@ -151,7 +190,7 @@ class WatchModel extends ChangeNotifier {
 
   /// Starts a timer from anywhere in the app and shows the current-timer page.
   Future<void> start(String description, int? projectId) async {
-    HapticFeedback.heavyImpact();
+    haptic();
     startSignal.value++;
     await bridge.start(description, projectId);
   }

@@ -1,0 +1,132 @@
+name: Release
+
+# Push a tag like v1.4.0 (matching pubspec.yaml) to publish a GitHub Release with signed APKs and,
+# when PLAY_SERVICE_ACCOUNT_JSON is set, upload the app bundles to Google Play. See docs/PUBLISHING.md.
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    env:
+      PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check tag matches pubspec version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PUBSPEC=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
+          echo "Tag $TAG, pubspec $PUBSPEC"
+          if [ "$TAG" != "$PUBSPEC" ]; then
+            echo "::error::Tag v$TAG doesn't match pubspec.yaml version $PUBSPEC"; exit 1
+          fi
+          echo "VERSION=$TAG" >> "$GITHUB_ENV"
+
+      - name: Extract release notes from CHANGELOG.md
+        run: |
+          awk -v v="$VERSION" '$0 ~ "^## \\[" v "\\]" {f=1; next} /^## \[/ {f=0} f' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::CHANGELOG.md has no section for [$VERSION]"; exit 1
+          fi
+          cat notes.md
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.47.5
+          cache: true
+
+      - run: flutter pub get
+      - run: flutter test
+
+      - name: Signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.TRACKWATCH_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.TRACKWATCH_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.TRACKWATCH_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.TRACKWATCH_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            # Tolerate line breaks and spaces added when pasting the secrets.
+            KEYSTORE_PASSWORD=$(printf '%s' "$KEYSTORE_PASSWORD" | tr -d '\r\n')
+            KEY_ALIAS=$(printf '%s' "$KEY_ALIAS" | tr -d ' \r\n\t')
+            KEY_PASSWORD=$(printf '%s' "$KEY_PASSWORD" | tr -d '\r\n')
+            CLEAN=$(printf '%s' "$KEYSTORE_BASE64" | tr -d ' \r\n\t')
+            echo "Keystore secret: ${#CLEAN} base64 characters (expected 5676)."
+            if ! printf '%s' "$CLEAN" | base64 -d > "$RUNNER_TEMP/trackwatch.jks"; then
+              echo "::error::TRACKWATCH_KEYSTORE_BASE64 is not valid base64 (probably cut off while pasting)."
+              exit 1
+            fi
+            if ! keytool -list -keystore "$RUNNER_TEMP/trackwatch.jks" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" > /dev/null; then
+              echo "::error::The keystore could not be opened with TRACKWATCH_KEYSTORE_PASSWORD / TRACKWATCH_KEY_ALIAS."
+              exit 1
+            fi
+            keytool -list -v -keystore "$RUNNER_TEMP/trackwatch.jks" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" | grep 'SHA256:'
+            {
+              echo "TRACKWATCH_KEYSTORE=$RUNNER_TEMP/trackwatch.jks"
+              echo "TRACKWATCH_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+              echo "TRACKWATCH_KEY_ALIAS=$KEY_ALIAS"
+              echo "TRACKWATCH_KEY_PASSWORD=$KEY_PASSWORD"
+            } >> "$GITHUB_ENV"
+          else
+            echo "::error::Releases must be signed: set the TRACKWATCH_KEYSTORE_* secrets."; exit 1
+          fi
+
+      - name: Build APKs (arm64) and app bundles
+        run: |
+          for f in phone wear; do
+            flutter build apk --release --flavor $f -t lib/main_$f.dart \
+              --split-per-abi --target-platform android-arm64 --split-debug-info=build/symbols/$f
+            flutter build appbundle --release --flavor $f -t lib/main_$f.dart \
+              --split-debug-info=build/symbols/$f-bundle
+          done
+          mkdir -p dist bundles
+          for f in phone wear; do
+            cp build/app/outputs/flutter-apk/app-arm64-v8a-$f-release.apk "dist/track-watch-$f-$VERSION.apk"
+            cp build/app/outputs/bundle/${f}Release/app-$f-release.aab "bundles/track-watch-$f-$VERSION.aab"
+          done
+          ls -lh dist bundles
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          name: Track Watch ${{ env.VERSION }}
+          body_path: notes.md
+          files: dist/*.apk
+
+      # For the first manual Play upload (see docs/PUBLISHING.md) and for reference.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: play-bundles-${{ env.VERSION }}
+          path: bundles/*.aab
+
+      # Until the app has passed its first Play review, Play only accepts draft releases; set the
+      # repository variable PLAY_RELEASE_STATUS to "completed" afterwards.
+      - name: Upload phone bundle to Google Play (internal)
+        if: env.PLAY_JSON != ''
+        uses: r0adkll/upload-google-play@v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: su.iho.trackwatch
+          releaseFiles: bundles/track-watch-phone-${{ env.VERSION }}.aab
+          tracks: internal
+          status: ${{ vars.PLAY_RELEASE_STATUS || 'draft' }}
+
+      - name: Upload watch bundle to Google Play (Wear OS internal)
+        if: env.PLAY_JSON != ''
+        uses: r0adkll/upload-google-play@v1.1.5
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: su.iho.trackwatch
+          releaseFiles: bundles/track-watch-wear-${{ env.VERSION }}.aab
+          tracks: wear:internal
+          status: ${{ vars.PLAY_RELEASE_STATUS || 'draft' }}

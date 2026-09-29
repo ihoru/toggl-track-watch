@@ -43,12 +43,16 @@ android {
 
     flavorDimensions += "device"
     productFlavors {
+        // Play needs distinct version codes for the phone and watch bundles of one app:
+        // phone = build × 10, watch = build × 10 + 1 (build = the +N in pubspec.yaml).
         create("phone") {
             dimension = "device"
+            versionCode = flutter.versionCode * 10
         }
         create("wear") {
             dimension = "device"
             minSdk = 30
+            versionCode = flutter.versionCode * 10 + 1
         }
     }
 
@@ -78,12 +82,6 @@ android {
 
     testOptions {
         unitTests.isReturnDefaultValues = true
-    }
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
     }
 }
 

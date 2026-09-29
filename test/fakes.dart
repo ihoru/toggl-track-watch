@@ -73,8 +73,13 @@ class FakeWatchBridge implements WatchBridge {
   @override
   Stream<ViewState> get updates => _updates.stream;
 
+  final _rotary = StreamController<double>.broadcast();
+
+  /// Simulates turning the crown by [pixels] (positive = clockwise).
+  void turnCrown(double pixels) => _rotary.add(pixels);
+
   @override
-  Stream<double> get rotary => const Stream.empty();
+  Stream<double> get rotary => _rotary.stream;
 
   @override
   Future<void> start(String description, int? projectId) async => calls.add('start:$description:$projectId');
@@ -107,6 +112,20 @@ class FakeWatchBridge implements WatchBridge {
 
   @override
   Stream<String> get ambient => _ambient.stream;
+
+  final settings = <String, dynamic>{};
+
+  @override
+  Future<bool> openUrlOnPhone(String url) async {
+    calls.add('openUrl:$url');
+    return phoneReachable;
+  }
+
+  @override
+  Future<Map<String, dynamic>> getSettings() async => {...settings};
+
+  @override
+  Future<void> setSetting(String key, Object value) async => settings[key] = value;
 
   @override
   Future<bool> openOnPhone() async {
