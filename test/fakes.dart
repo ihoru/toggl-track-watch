@@ -6,6 +6,10 @@ import 'package:trackwatch/wear/watch_bridge.dart';
 
 final now = DateTime.now();
 
+/// Fixed times of day, so tests don't depend on when they run (e.g. just after midnight).
+final today = DateTime(now.year, now.month, now.day);
+final yesterday = today.subtract(const Duration(days: 1));
+
 ViewState sampleState({bool running = true}) => ViewState(
   configured: true,
   projects: const [
@@ -33,16 +37,16 @@ ViewState sampleState({bool running = true}) => ViewState(
       id: '9',
       description: 'Standup',
       projectId: 2,
-      start: now.subtract(const Duration(hours: 2)),
-      stop: now.subtract(const Duration(hours: 1, minutes: 45)),
+      start: today.add(const Duration(hours: 9)),
+      stop: today.add(const Duration(hours: 9, minutes: 15)),
       pending: true,
     ),
     TimeEntry(
       id: '8',
       description: 'Coding',
       projectId: 1,
-      start: now.subtract(const Duration(days: 1, hours: 3)),
-      stop: now.subtract(const Duration(days: 1, hours: 1)),
+      start: yesterday.add(const Duration(hours: 9)),
+      stop: yesterday.add(const Duration(hours: 11)),
     ),
   ],
   lastSync: now,

@@ -202,17 +202,15 @@ void main() {
 
     await tapText(tester, 'Coding');
     await tapText(tester, 'Edit start time');
+    await tapText(tester, '−15');
     await tapText(tester, '−5');
-    await tapText(tester, '−1');
     await tapText(tester, 'Save');
-    final expected = start.subtract(const Duration(minutes: 6));
+    final expected = start.subtract(const Duration(minutes: 20));
     expect(bridge.calls.last, 'setStart:10:${expected.millisecondsSinceEpoch}');
 
     // Can't move the start into the future.
     await tapText(tester, 'Edit start time');
-    for (var i = 0; i < 3; i++) {
-      await tapText(tester, '+5');
-    }
+    await tapText(tester, '+15');
     await tapText(tester, 'Save');
     final saved = int.parse(bridge.calls.last.split(':').last);
     expect(saved, lessThanOrEqualTo(DateTime.now().millisecondsSinceEpoch));

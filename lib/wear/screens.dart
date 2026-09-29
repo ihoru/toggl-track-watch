@@ -567,7 +567,7 @@ class _EditScreenState extends State<EditScreen> {
   }
 }
 
-/// Moves the start time of an entry: turn the crown (one minute per step) or tap ±1 / ±5.
+/// Moves the start time of an entry: turn the crown (one minute per step) or tap ±5 / ±15.
 class StartTimeScreen extends StatefulWidget {
   const StartTimeScreen({super.key, required this.entry});
 
@@ -622,8 +622,8 @@ class _StartTimeScreenState extends State<StartTimeScreen> {
     Widget step(String label, int minutes) => TextButton(
       style: TextButton.styleFrom(
         visualDensity: VisualDensity.compact,
-        minimumSize: const Size(36, 32),
-        padding: const EdgeInsets.symmetric(horizontal: 6),
+        minimumSize: const Size(32, 32),
+        padding: const EdgeInsets.symmetric(horizontal: 4),
       ),
       onPressed: () => _move(minutes),
       child: Text(label),
@@ -656,9 +656,13 @@ class _StartTimeScreenState extends State<StartTimeScreen> {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [step('−5', -5), step('−1', -1), step('+1', 1), step('+5', 5)],
+                // Scales down on narrow screens instead of overflowing.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [step('−15', -15), step('−5', -5), step('+5', 5), step('+15', 15)],
+                  ),
                 ),
                 const SizedBox(height: 4),
                 FilledButton.icon(
