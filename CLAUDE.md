@@ -11,6 +11,8 @@ Flutter UI (phone + Wear OS flavors) with a Kotlin native layer. See `README.md`
   release notes. For Play, also add `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`
   (versionCode = build × 10 for the phone, build × 10 + 1 for the watch).
 - Branches: `main` is the default branch. Work on a feature branch and open a pull request into `main`.
+- After opening a pull request, always watch it: follow CI and reviews, and fix failures until it is green
+  and mergeable.
 - Releases: after merging to `main`, push a tag `v<version>` matching `pubspec.yaml`
   (see `docs/PUBLISHING.md`).
 - Before pushing: `dart format lib test`, `flutter analyze`, `flutter test`.
