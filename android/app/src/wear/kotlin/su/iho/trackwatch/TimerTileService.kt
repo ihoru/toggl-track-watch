@@ -26,13 +26,12 @@ import su.iho.trackwatch.shared.ViewState
 import java.text.DateFormat
 import java.util.Date
 
-/** Tile: the running timer with a Stop button, and favorites as one-tap start buttons. */
+/** Tile: the running timer with an Open button, and favorites as one-tap start buttons. */
 class TimerTileService : TileService() {
     override fun onTileRequest(requestParams: RequestBuilders.TileRequest): ListenableFuture<TileBuilders.Tile> {
         val store = WatchStore.get(this)
         val clicked = requestParams.currentState.lastClickableId
         when {
-            clicked == ID_STOP -> store.stopRunning()
             clicked.startsWith(ID_FAVORITE) -> clicked.removePrefix(ID_FAVORITE).toIntOrNull()?.let(store::startFavorite)
             clicked.startsWith(ID_FREQUENT) -> clicked.removePrefix(ID_FREQUENT).toIntOrNull()?.let(store::startFrequent)
         }
@@ -54,7 +53,6 @@ class TimerTileService : TileService() {
     }
 
     companion object {
-        const val ID_STOP = "stop"
         const val ID_FAVORITE = "fav:"
         const val ID_FREQUENT = "freq:"
         private const val RESOURCES_VERSION = "1"
@@ -94,14 +92,7 @@ private class TileLayout(private val context: Context, private val device: Devic
             column.addContent(row.build())
         }
 
-        val primary = if (running != null) {
-            CompactChip.Builder(context, "Stop", loadClickable(TimerTileService.ID_STOP), device)
-                .setChipColors(ChipColors(RED, WHITE))
-                .build()
-        } else {
-            openChip()
-        }
-        return PrimaryLayout.Builder(device).setContent(column.build()).setPrimaryChipContent(primary).build()
+        return PrimaryLayout.Builder(device).setContent(column.build()).setPrimaryChipContent(openChip()).build()
     }
 
     /** A timer on the tile: favorites first, then frequent timers that are not favorites. */
@@ -181,7 +172,6 @@ private class TileLayout(private val context: Context, private val device: Devic
 
     companion object {
         const val GREY = 0xFFBDBDBD.toInt()
-        const val RED = 0xFFE57373.toInt()
         const val WHITE = 0xFFFFFFFF.toInt()
         const val BLACK = 0xFF000000.toInt()
         const val NO_PROJECT = 0xFF9E9E9E.toInt()

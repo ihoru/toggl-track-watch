@@ -22,7 +22,7 @@ calls are made by the phone.**
 | Offline / rate limits | Nothing is lost. The watch queues commands until the phone is reachable; the phone queues commands until Toggl accepts them (network, HTTP 402 quota, 429, 5xx). Commands carry the time the user tapped, so offline start/stop times are exact. UI is optimistic; unsynced entries show a ⟳ marker. Conflicts: last write wins. |
 | Refresh | When the watch app or tile opens, after commands, "Sync now", and every 15 minutes in the background. Projects are refreshed at most hourly. |
 | Watch layout | Five horizontal pages with dots: Now (running timer with Stop / Cancel, Continue last, New timer), Favorites, Frequent (last 30 days, ranked once a day on the phone), History, Sync (status, Refresh, Open on phone). Starting a timer jumps to Now. The last page and each page's scroll position persist. |
-| Watch extras | Ongoing Activity (icon on the watch face while a timer runs, with a Stop action), a Tile (running timer + Stop, then up to 6 timers in a two-column grid, favorites first and then frequent), a short-text complication (elapsed time of the running entry, `—` when idle), and an ambient (dimmed, low-power) screen. |
+| Watch extras | Ongoing Activity (icon on the watch face while a timer runs, with a Stop action), a Tile (running timer + Open, then up to 6 timers in a two-column grid, favorites first and then frequent), a short-text complication (elapsed time of the running entry, `—` when idle), and an ambient (dimmed, low-power) screen. |
 | Distribution | Personal sideload. GitHub Actions builds both APKs. |
 
 ## Architecture
