@@ -5,7 +5,7 @@ Track Watch is a Wear OS app with a companion phone app for Toggl Track users:
 • Start a favorite or one of your most frequent timers with one tap
 • See the running timer, stop it, cancel it, or move its start time with the crown
 • Browse the last 7 days of history with daily totals; continue, edit or delete entries
-• Tile with your timers and a Stop button, a watch-face complication with the elapsed time, and the running timer on your watch face
+• Tile with your timers and an Open button, a watch-face complication with the elapsed time, and the running timer on your watch face
 • Works offline: actions are queued and synced when your phone and Toggl are reachable
 • Shows how many Toggl API requests you have left this hour
 

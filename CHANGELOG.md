@@ -4,6 +4,11 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 versions match `version:` in `pubspec.yaml`. The release workflow publishes the section of the
 tagged version as the GitHub Release notes.
 
+## [1.4.1] - 2026-10-02
+### Changed
+- Watch tile: while a timer runs, the bottom button is **Open** (opens the app) instead of **Stop**.
+  Stop is still in the app and in the running-timer notification.
+
 ## [1.4.0] - 2026-09-29
 ### Added
 - Watch settings screen (Sync page → Settings): running-timer notification on/off, vibration on/off,
@@ -47,4 +52,5 @@ tagged version as the GitHub Release notes.
 - First version: phone settings app and Wear OS app for Toggl Track with offline queue, tile,
   complication and Ongoing Activity.
 
+[1.4.1]: https://github.com/ihoru/toggl-track-watch/releases/tag/v1.4.1
 [1.4.0]: https://github.com/ihoru/toggl-track-watch/releases/tag/v1.4.0

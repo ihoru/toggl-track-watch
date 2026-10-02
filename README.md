@@ -30,7 +30,7 @@ phone app. Start, stop and edit your time entries from your wrist.
 - **Frequent:** your most-tracked timers of the last 30 days.
 - **History:** the last 7 days with daily totals. Continue, edit or delete entries.
 - **Sync:** status, API requests left, Refresh, Open on phone and **Settings**.
-- Plus a **tile** (running timer with Stop, up to six timers in two columns), a **complication** with
+- Plus a **tile** (running timer with Open, up to six timers in two columns), a **complication** with
   the elapsed time, the running timer on your watch face, and a dimmed ambient screen.
 
 **Phone:** paste your Toggl API token once and manage favorites.
