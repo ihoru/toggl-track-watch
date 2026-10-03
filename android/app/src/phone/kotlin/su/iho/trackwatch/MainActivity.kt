@@ -90,6 +90,12 @@ class MainActivity : FlutterActivity() {
                     // versionCode is build × 10 (+1 on the watch); show the pubspec build number.
                     result.success("${info.versionName} (${info.longVersionCode / 10})")
                 }
+                "openUrl" -> {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(call.argument<String>("url")!!))
+                    runCatching { startActivity(intent) }
+                        .onSuccess { result.success(null) }
+                        .onFailure { result.error("open", "No app can open the link", null) }
+                }
                 "watchConnected" -> scope.launch {
                     val nodes = withTimeoutOrNull(3_000) {
                         runCatching { Wearable.getNodeClient(this@MainActivity).connectedNodes.await() }.getOrNull()

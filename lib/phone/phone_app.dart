@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../src/format.dart';
+import '../src/links.dart';
 import '../src/models.dart';
 import '../src/theme.dart';
 import 'phone_bridge.dart';
@@ -118,6 +119,16 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
       );
   }
 
+  Future<void> _openLink(String url) async {
+    try {
+      await _bridge.openUrl(url);
+    } on PlatformException {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not open $url')));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = _snapshot.state;
@@ -127,6 +138,15 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
         title: _HeaderTitle(account: configured ? _snapshot.account : null),
         actions: [
           if (configured) IconButton(tooltip: 'Change token', icon: const Icon(Icons.key), onPressed: _signOut),
+          PopupMenuButton<String>(
+            tooltip: 'About',
+            onSelected: _openLink,
+            itemBuilder: (context) => [
+              const PopupMenuItem(value: privacyUrl, child: Text('Privacy policy')),
+              const PopupMenuItem(value: sourceUrl, child: Text('Source code')),
+              if (_version.isNotEmpty) PopupMenuItem(enabled: false, child: Text('Track Watch $_version')),
+            ],
+          ),
         ],
       ),
       body: _restoring

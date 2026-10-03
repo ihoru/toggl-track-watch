@@ -4,6 +4,14 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 versions match `version:` in `pubspec.yaml`. The release workflow publishes the section of the
 tagged version as the GitHub Release notes.
 
+## [1.5.0] - 2026-10-03
+### Added
+- Phone app: ⋮ menu with the privacy policy, source code and app version.
+### Changed
+- Google Play preparation: app bundles carry native debug symbols, releases can be started from
+  GitHub Actions, and Play releases get "What's new" notes. The store listing is uploaded from the
+  repository.
+
 ## [1.4.1] - 2026-10-02
 ### Changed
 - Watch tile: while a timer runs, the bottom button is **Open** (opens the app) instead of **Stop**.
@@ -52,5 +60,6 @@ tagged version as the GitHub Release notes.
 - First version: phone settings app and Wear OS app for Toggl Track with offline queue, tile,
   complication and Ongoing Activity.
 
+[1.5.0]: https://github.com/ihoru/toggl-track-watch/releases/tag/v1.5.0
 [1.4.1]: https://github.com/ihoru/toggl-track-watch/releases/tag/v1.4.1
 [1.4.0]: https://github.com/ihoru/toggl-track-watch/releases/tag/v1.4.0
