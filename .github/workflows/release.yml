@@ -33,8 +33,12 @@ jobs:
             fi
           elif [ "$GITHUB_REF_NAME" != main ]; then
             echo "::error::Run the release from main (this run is on $GITHUB_REF_NAME)."; exit 1
-          elif git ls-remote --exit-code --tags origin "refs/tags/v$PUBSPEC" > /dev/null; then
-            echo "::error::v$PUBSPEC is already released. Bump version: in pubspec.yaml first."; exit 1
+          else
+            # The tag exists after a run that failed later: a re-run of that same commit may continue.
+            TAGGED=$(git ls-remote --tags origin "refs/tags/v$PUBSPEC" "refs/tags/v$PUBSPEC^{}" | tail -1 | cut -f1)
+            if [ -n "$TAGGED" ] && [ "$TAGGED" != "$GITHUB_SHA" ]; then
+              echo "::error::v$PUBSPEC is already released from another commit. Bump version: in pubspec.yaml first."; exit 1
+            fi
           fi
           echo "VERSION=$PUBSPEC" >> "$GITHUB_ENV"
           echo "BUILD=$BUILD" >> "$GITHUB_ENV"

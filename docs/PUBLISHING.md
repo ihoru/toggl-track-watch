@@ -99,14 +99,20 @@ and run **Play listing**, or paste by hand from `fastlane/metadata/android/en-US
   - *Is all of the user data collected by your app encrypted in transit?* **Yes** (HTTPS to Toggl,
     the Data Layer and Block Store are encrypted).
   - *Which account creation methods?* **None** (the app uses an existing Toggl account and makes no accounts).
-  - *Data types*, both with: Collected **Yes**, Shared **No** (sending to Toggl is what the user asks the
-    app to do), Processed ephemerally **No**, **Required**, purpose **App functionality** only:
+  - *Data types*, each with: Collected **Yes**, Shared **No** (sending to Toggl is what the user asks
+    the app to do), Processed ephemerally **No**, **Required**, purpose **App functionality** only:
+    - **Personal info → User IDs**: the Toggl API token. It identifies the user's Toggl account, is
+      sent to Toggl with every request, and is saved in the Block Store backup.
     - **App activity → Other user-generated content**: time entries (description, project, times)
-      the user starts, edits or deletes, sent to Toggl.
-    - **App info and performance**: nothing. **Personal info**: nothing. The Toggl name and email are
-      only received and shown on the phone, never sent anywhere.
-  - *Delete data:* users can remove the token and backup with **Change token** and uninstalling;
-    time entries are deleted in Toggl Track itself. No developer account or server exists.
+      the user starts, edits or deletes, sent to Toggl; favorites, saved in the Block Store backup.
+    - Not collected: the Toggl name and email are only received and shown on the phone, never sent
+      anywhere. No App info and performance data (no analytics or crash reporting).
+  - *Data deletion* (describe it like this):
+    - **Change token** removes the token from the phone and from the backup.
+    - Favorites and settings stay in the Block Store backup (so a reinstall restores them) until the
+      user deletes the app's backup data in their Google account (Android Settings → Google →
+      Backup, or Google One → Manage backup); uninstalling removes everything on the devices.
+    - Time entries are deleted in Toggl Track itself. There is no developer account or server.
 - **Advertising ID:** the app doesn't use it (no `AD_ID` permission).
 
 ### 7. Review and publish
