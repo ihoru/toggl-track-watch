@@ -1,10 +1,13 @@
 name: Release
 
-# Push a tag like v1.4.0 (matching pubspec.yaml) to publish a GitHub Release with signed APKs and,
-# when PLAY_SERVICE_ACCOUNT_JSON is set, upload the app bundles to Google Play. See docs/PUBLISHING.md.
+# Publishes the version in pubspec.yaml: a GitHub Release with signed APKs and, when
+# PLAY_SERVICE_ACCOUNT_JSON is set, the app bundles on Google Play. Start it from Actions → Release →
+# Run workflow on main (it creates the tag v<version>), or push a tag like v1.4.0 yourself.
+# See docs/PUBLISHING.md.
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -17,15 +20,24 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Check tag matches pubspec version
+      - name: Version from pubspec (and check the tag)
         run: |
-          TAG="${GITHUB_REF_NAME#v}"
-          PUBSPEC=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
-          echo "Tag $TAG, pubspec $PUBSPEC"
-          if [ "$TAG" != "$PUBSPEC" ]; then
-            echo "::error::Tag v$TAG doesn't match pubspec.yaml version $PUBSPEC"; exit 1
+          FULL=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          PUBSPEC=${FULL%%+*}
+          BUILD=${FULL##*+}
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            TAG="${GITHUB_REF_NAME#v}"
+            echo "Tag $TAG, pubspec $PUBSPEC"
+            if [ "$TAG" != "$PUBSPEC" ]; then
+              echo "::error::Tag v$TAG doesn't match pubspec.yaml version $PUBSPEC"; exit 1
+            fi
+          elif [ "$GITHUB_REF_NAME" != main ]; then
+            echo "::error::Run the release from main (this run is on $GITHUB_REF_NAME)."; exit 1
+          elif git ls-remote --exit-code --tags origin "refs/tags/v$PUBSPEC" > /dev/null; then
+            echo "::error::v$PUBSPEC is already released. Bump version: in pubspec.yaml first."; exit 1
           fi
-          echo "VERSION=$TAG" >> "$GITHUB_ENV"
+          echo "VERSION=$PUBSPEC" >> "$GITHUB_ENV"
+          echo "BUILD=$BUILD" >> "$GITHUB_ENV"
 
       - name: Extract release notes from CHANGELOG.md
         run: |
@@ -97,8 +109,11 @@ jobs:
           done
           ls -lh dist bundles
 
+      # On a manual run this also creates the tag v<version> on the commit that was built.
       - uses: softprops/action-gh-release@v3
         with:
+          tag_name: v${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
           name: Track Watch ${{ env.VERSION }}
           body_path: notes.md
           files: dist/*.apk
@@ -109,24 +124,39 @@ jobs:
           name: play-bundles-${{ env.VERSION }}
           path: bundles/*.aab
 
+      # Play's "What's new" text: fastlane/metadata/android/en-US/changelogs/<versionCode>.txt.
+      - name: Play release notes
+        if: env.PLAY_JSON != ''
+        run: |
+          for pair in phone:$((BUILD * 10)) wear:$((BUILD * 10 + 1)); do
+            f=${pair%%:*}; code=${pair##*:}
+            src=fastlane/metadata/android/en-US/changelogs/$code.txt
+            [ -f "$src" ] || { echo "::error::Missing $src"; exit 1; }
+            [ "$(wc -m < "$src")" -le 500 ] || { echo "::error::$src is longer than Play's 500 characters"; exit 1; }
+            mkdir -p "whatsnew/$f" && cp "$src" "whatsnew/$f/whatsnew-en-US"
+          done
+
       # Until the app has passed its first Play review, Play only accepts draft releases; set the
-      # repository variable PLAY_RELEASE_STATUS to "completed" afterwards.
-      - name: Upload phone bundle to Google Play (internal)
+      # repository variable PLAY_RELEASE_STATUS to "completed" afterwards. PLAY_TRACK picks the track
+      # (internal by default; alpha, beta or production); the watch uses the Wear OS track of that name.
+      - name: Upload phone bundle to Google Play
         if: env.PLAY_JSON != ''
         uses: r0adkll/upload-google-play@v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: su.iho.trackwatch
           releaseFiles: bundles/track-watch-phone-${{ env.VERSION }}.aab
-          tracks: internal
+          whatsNewDirectory: whatsnew/phone
+          tracks: ${{ vars.PLAY_TRACK || 'internal' }}
           status: ${{ vars.PLAY_RELEASE_STATUS || 'draft' }}
 
-      - name: Upload watch bundle to Google Play (Wear OS internal)
+      - name: Upload watch bundle to Google Play (Wear OS track)
         if: env.PLAY_JSON != ''
         uses: r0adkll/upload-google-play@v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: su.iho.trackwatch
           releaseFiles: bundles/track-watch-wear-${{ env.VERSION }}.aab
-          tracks: wear:internal
+          whatsNewDirectory: whatsnew/wear
+          tracks: wear:${{ vars.PLAY_TRACK || 'internal' }}
           status: ${{ vars.PLAY_RELEASE_STATUS || 'draft' }}

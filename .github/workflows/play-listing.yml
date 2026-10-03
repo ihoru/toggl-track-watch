@@ -1,0 +1,44 @@
+name: Play listing
+
+# Uploads the store listing from fastlane/metadata/android/en-US/ to Google Play: title, short and
+# full description, icon, feature graphic, phone and Wear OS screenshots. App bundles and release
+# notes go up with releases (release.yml). Needs the PLAY_SERVICE_ACCOUNT_JSON secret.
+on:
+  workflow_dispatch:
+    inputs:
+      validate_only:
+        description: Only check the listing with Play, don't save it
+        type: boolean
+        default: false
+
+jobs:
+  listing:
+    runs-on: ubuntu-24.04
+    env:
+      PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the secret
+        run: |
+          if [ -z "$PLAY_JSON" ]; then
+            echo "::error::Set the PLAY_SERVICE_ACCOUNT_JSON secret first (docs/PUBLISHING.md)."; exit 1
+          fi
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - run: gem install fastlane --no-document
+
+      - name: Upload listing
+        run: >-
+          fastlane supply
+          --package_name su.iho.trackwatch
+          --json_key_data "$PLAY_JSON"
+          --metadata_path fastlane/metadata/android
+          --skip_upload_apk true
+          --skip_upload_aab true
+          --skip_upload_changelogs true
+          --sync_image_upload true
+          --validate_only ${{ inputs.validate_only }}

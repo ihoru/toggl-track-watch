@@ -108,7 +108,7 @@ CI reads the same values from the repository secrets `TRACKWATCH_KEYSTORE_BASE64
 ### Releases
 
 Bump `version:` in `pubspec.yaml`, add the version's section to [CHANGELOG.md](CHANGELOG.md), merge
-to `main` and push a tag `v<version>`. The release workflow publishes a GitHub Release with the
+to `main` and run **Actions → Release** (or push a tag `v<version>`). The release workflow publishes a GitHub Release with the
 APKs and, once configured, uploads to Google Play. See [docs/PUBLISHING.md](docs/PUBLISHING.md).
 
 ## Project layout

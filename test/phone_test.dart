@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:trackwatch/phone/phone_app.dart';
 import 'package:trackwatch/phone/phone_bridge.dart';
+import 'package:trackwatch/src/links.dart';
 import 'package:trackwatch/src/models.dart';
 
 import 'fakes.dart';
@@ -152,5 +153,24 @@ void main() {
     }
     await tester.pumpAndSettle();
     expect(bridge.restoreCalls, 1);
+  });
+
+  testWidgets('About menu opens the privacy policy and source code, also before setup', (tester) async {
+    final bridge = FakePhoneBridge(PhoneSnapshot.empty);
+    await tester.pumpWidget(PhoneApp(bridge: bridge));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('About'));
+    await tester.pumpAndSettle();
+    expect(find.text('Track Watch 1.1.0 (2)'), findsOneWidget);
+    await tester.tap(find.text('Privacy policy'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('About'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Source code'));
+    await tester.pumpAndSettle();
+
+    expect(bridge.opened, [privacyUrl, sourceUrl]);
   });
 }

@@ -9,7 +9,7 @@ Track Watch is a Wear OS app with a companion phone app for Toggl Track users:
 • Works offline: actions are queued and synced when your phone and Toggl are reachable
 • Shows how many Toggl API requests you have left this hour
 
-On the phone you paste your Toggl Track API token once and set up your favorites. Your token stays encrypted on your phone; the app talks only to Toggl's API. No ads, no tracking.
+Install both apps: the watch app needs the Track Watch phone app on the paired phone, which does the syncing with Toggl. On the phone you paste your Toggl Track API token once and set up your favorites. Your token stays encrypted on your phone; the app talks only to Toggl's API. No ads, no tracking.
 
 Track Watch is open source (MIT): https://github.com/ihoru/toggl-track-watch
 
