@@ -131,10 +131,10 @@ class SyncEngine(private val context: Context) {
         val projectsStale = System.currentTimeMillis() - store.projectsFetchedAt > PROJECTS_TTL
         val projects = if (projectsStale) api.projects(wid) else null
 
-        // Once a day, fetch 30 days instead of 7 (still one request) and rank the frequent timers.
-        val entries = if (store.frequentDay != today.toString()) {
+        // Once a day, fetch 30 days instead of 7 (still one request) and rank the frequent and recent timers.
+        val entries = if (store.frequentDay != today.toString() || !store.hasRecent) {
             val month = api.entries(wid, today.minusDays(FREQUENT_DAYS - 1).atStartOfDay(zone).toInstant(), to)
-            store.setFrequent(Frequency.rank(month), today.toString())
+            store.setFrequent(Frequency.rank(month), Frequency.recent(month), today.toString())
             month.filter { it.start >= from.toEpochMilli() }
         } else {
             api.entries(wid, from, to)

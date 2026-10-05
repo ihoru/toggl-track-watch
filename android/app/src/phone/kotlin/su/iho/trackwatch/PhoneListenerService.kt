@@ -18,7 +18,9 @@ class PhoneListenerService : WearableListenerService() {
     override fun onMessageReceived(event: MessageEvent) {
         if (event.path == Paths.REFRESH) {
             // Re-publish right away so a freshly opened watch app has data, then refresh from Toggl.
-            PhoneStore.get(this).changed()
+            val store = PhoneStore.get(this)
+            store.watchActive()
+            store.changed()
             Sync.now(this, refresh = true)
         }
     }

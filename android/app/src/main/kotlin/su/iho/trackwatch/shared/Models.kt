@@ -4,6 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.security.MessageDigest
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
@@ -120,8 +121,10 @@ data class ViewState(
     val entries: List<TimeEntry> = emptyList(),
     val projects: List<Project> = emptyList(),
     val favorites: List<Favorite> = emptyList(),
-    /** Most-tracked (description, project) pairs of the last 30 days, recalculated once a day. */
+    /** Most-tracked (description, project) pairs of the last 30 days that aren't favorites (up to 30), recalculated once a day. */
     val frequent: List<Frequent> = emptyList(),
+    /** Distinct (description, project) pairs of the last 30 days, most recent first, recalculated once a day. */
+    val recent: List<Favorite> = emptyList(),
     val acks: List<String> = emptyList(),
     /** Local ids of entries created offline mapped to their Toggl ids. */
     val idMap: Map<String, String> = emptyMap(),
@@ -145,6 +148,7 @@ data class ViewState(
         .put("projects", JSONArray(projects.map { it.toJson() }))
         .put("favorites", JSONArray(favorites.map { it.toJson() }))
         .put("frequent", JSONArray(frequent.map { it.toJson() }))
+        .put("recent", JSONArray(recent.map { it.toJson() }))
         .put("acks", JSONArray(acks))
         .put("idMap", JSONObject(idMap))
         .put("pendingCount", pendingCount)
@@ -157,6 +161,16 @@ data class ViewState(
 
     fun toBytes(): ByteArray = gzip(toJson().toString())
 
+    /**
+     * Fingerprint of what the watch needs to be woken for: everything except the sync time and
+     * the API quota, which change on every background sync.
+     */
+    fun watchContentHash(): String {
+        val json = copy(lastSync = null, quotaRemaining = null, quotaResetsAt = null).toJson().toString()
+        return MessageDigest.getInstance("SHA-256").digest(json.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+    }
+
     companion object {
         fun fromJson(o: JSONObject) = ViewState(
             configured = o.optBoolean("configured", false),
@@ -164,6 +178,7 @@ data class ViewState(
             projects = o.optJSONArray("projects").objects().map(Project::fromJson),
             favorites = o.optJSONArray("favorites").objects().map(Favorite::fromJson),
             frequent = o.optJSONArray("frequent").objects().map(Frequent::fromJson),
+            recent = o.optJSONArray("recent").objects().map(Favorite::fromJson),
             acks = o.optJSONArray("acks").strings(),
             idMap = o.optJSONObject("idMap")?.let { m -> m.keys().asSequence().associateWith { m.getString(it) } } ?: emptyMap(),
             pendingCount = o.optInt("pendingCount", 0),

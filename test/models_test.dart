@@ -59,6 +59,17 @@ void main() {
     ]);
   });
 
+  test('recent timers: synced entries first, then the 30-day list, without the running timer', () {
+    expect(sampleState().recentTimers(), const [
+      Favorite(description: 'Standup', projectId: 2),
+      Favorite(description: 'Review', projectId: 2),
+      Favorite(description: 'Deep work', projectId: 1),
+    ]);
+    expect(sampleState(running: false).recentTimers().first, const Favorite(description: 'Standup', projectId: 2));
+    expect(sampleState(running: false).recentTimers()[1], const Favorite(description: 'Coding', projectId: 1));
+    expect(sampleState().recentTimers(limit: 2).length, 2);
+  });
+
   test('days group entries with totals', () {
     final days = sampleState(running: false).days();
     expect(days.length, 2);

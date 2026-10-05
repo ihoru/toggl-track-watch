@@ -91,6 +91,30 @@ class CommandsTest {
     }
 
     @Test
+    fun withoutFavoritesFiltersBeforeTheLimit() {
+        val ranking = listOf(Frequent("A", 1, 9), Frequent("B", 1, 8), Frequent("C", null, 7), Frequent("D", 2, 6))
+        val favorites = listOf(Favorite(" A ", 1), Favorite("B", 1))
+        assertEquals(listOf(Frequent("C", null, 7), Frequent("D", 2, 6)), Frequency.withoutFavorites(ranking, favorites, limit = 2))
+    }
+
+    @Test
+    fun recentIsDistinctAndNewestFirst() {
+        fun e(id: Int, d: String, p: Long?, start: Long) = TimeEntry(id.toString(), d, p, start, start + 1)
+        val entries = listOf(
+            e(1, "Email", null, 100),
+            e(2, "Coding", 1, 400),
+            e(3, "Coding ", 1, 200),
+            e(4, "", null, 600),
+            e(5, "Review", 2, 300),
+        )
+        assertEquals(
+            listOf(Favorite("Coding", 1), Favorite("Review", 2), Favorite("Email", null)),
+            Frequency.recent(entries),
+        )
+        assertEquals(1, Frequency.recent(entries, limit = 1).size)
+    }
+
+    @Test
     fun viewStateRoundTrip() {
         val state = ViewState(
             configured = true,
@@ -98,6 +122,7 @@ class CommandsTest {
             projects = listOf(Project(10, "P", "#ff0000")),
             favorites = listOf(Favorite("fav", 10), Favorite("nofav", null)),
             frequent = listOf(Frequent("fav", 10, 3)),
+            recent = listOf(Favorite("fav", 10)),
             acks = listOf("a"),
             pendingCount = 2,
             lastSync = 42,
@@ -106,5 +131,14 @@ class CommandsTest {
             quotaResetsAt = 99,
         )
         assertEquals(state, ViewState.fromBytes(state.toBytes()))
+    }
+
+    @Test
+    fun watchContentIgnoresSyncTimeAndQuota() {
+        val state = ViewState(configured = true, entries = listOf(running), lastSync = 1, quotaRemaining = 30, quotaResetsAt = 5)
+        val synced = state.copy(lastSync = 2, quotaRemaining = 29, quotaResetsAt = 6)
+        assertEquals(state.watchContentHash(), synced.watchContentHash())
+        assertTrue(state.watchContentHash() != state.copy(entries = listOf(done)).watchContentHash())
+        assertTrue(state.watchContentHash() != state.copy(error = "boom").watchContentHash())
     }
 }

@@ -13,8 +13,8 @@ Flutter UI (phone + Wear OS flavors) with a Kotlin native layer. See `README.md`
 - Branches: `main` is the default branch. Work on a feature branch and open a pull request into `main`.
 - After opening a pull request, always watch it: follow CI and reviews, and fix failures until it is green
   and mergeable.
-- Releases: after merging to `main`, run Actions → Release (it tags `v<version>` from `pubspec.yaml`),
-  or push that tag (see `docs/PUBLISHING.md`).
+- Releases are automatic: merging a new `pubspec.yaml` version to `main` builds and publishes the
+  release and creates the tag `v<version>` (see `docs/PUBLISHING.md`).
 - Before pushing: `dart format lib test`, `flutter analyze`, `flutter test`.
 - Android builds can't run in the cloud sandbox (dl.google.com is blocked); CI builds both APKs and
   smoke-tests them in emulators.

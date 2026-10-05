@@ -24,6 +24,11 @@ ViewState sampleState({bool running = true}) => ViewState(
     Frequent(description: 'Coding', projectId: 1, count: 12),
     Frequent(description: 'Standup', projectId: 2, count: 5),
   ],
+  recent: const [
+    Favorite(description: 'Review', projectId: 2),
+    Favorite(description: 'Standup', projectId: 2),
+    Favorite(description: 'Deep work', projectId: 1),
+  ],
   entries: [
     if (running)
       TimeEntry(

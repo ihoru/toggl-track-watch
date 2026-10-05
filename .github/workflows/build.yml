@@ -1,8 +1,10 @@
 name: Build
 
 on:
+  # Branches are tested through their pull requests (which test the merge with main), so a push
+  # build only runs on main; tags are handled by release.yml.
   push:
-    branches: ['**'] # tags are handled by release.yml
+    branches: [main]
   pull_request:
   workflow_dispatch:
 

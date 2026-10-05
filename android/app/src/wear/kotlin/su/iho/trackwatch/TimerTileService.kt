@@ -37,7 +37,8 @@ class TimerTileService : TileService() {
         }
         val tile = TileBuilders.Tile.Builder()
             .setResourcesVersion(RESOURCES_VERSION)
-            .setFreshnessIntervalMillis(60_000)
+            // Nothing on the tile changes with time; WatchStore asks for an update when the state does.
+            .setFreshnessIntervalMillis(0)
             .setTileTimeline(
                 TimelineBuilders.Timeline.fromLayoutElement(TileLayout(this, requestParams.deviceConfiguration).build(store.view()))
             )

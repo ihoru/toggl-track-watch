@@ -17,8 +17,24 @@ class WearApp extends StatefulWidget {
 class _WearAppState extends State<WearApp> {
   late final WatchModel _model = WatchModel(widget.bridge);
 
+  /// Whether the app is on screen; running clocks stop ticking in the background.
+  bool _visible = true;
+  late final AppLifecycleListener _lifecycle = AppLifecycleListener(
+    onStateChange: (state) {
+      final visible = state == AppLifecycleState.resumed || state == AppLifecycleState.inactive;
+      if (visible != _visible) setState(() => _visible = visible);
+    },
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _lifecycle;
+  }
+
   @override
   void dispose() {
+    _lifecycle.dispose();
     _model.dispose();
     super.dispose();
   }
@@ -38,7 +54,7 @@ class _WearAppState extends State<WearApp> {
           builder: (context, _) => Stack(
             children: [
               TickerMode(
-                enabled: !_model.ambient,
+                enabled: _visible && !_model.ambient,
                 child: Offstage(offstage: _model.ambient, child: child),
               ),
               if (_model.ambient) Positioned.fill(child: AmbientView(state: _model.state)),

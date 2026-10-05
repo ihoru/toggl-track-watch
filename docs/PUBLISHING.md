@@ -4,16 +4,17 @@
 1. Bump `version:` in `pubspec.yaml` and add a `## [x.y.z]` section to `CHANGELOG.md`, plus
    `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` (Play's "What's new", at most 500
    characters; versionCode = build × 10 for the phone, build × 10 + 1 for the watch).
-2. Merge to `main`.
-3. GitHub → **Actions → Release → Run workflow** on `main`. (Pushing a tag `v<version>` does the same.)
-   `.github/workflows/release.yml` then:
-   - checks the version isn't released yet, and creates the tag `v<version>`,
+2. Merge to `main`. `.github/workflows/release.yml` sees that `v<version>` isn't tagged yet and:
    - builds signed APKs and app bundles,
-   - publishes a GitHub Release with the APKs and the changelog section,
+   - publishes a GitHub Release (creating the tag) with the APKs and the changelog section,
    - keeps the bundles as the run's `play-bundles-<version>` artifact,
    - when `PLAY_SERVICE_ACCOUNT_JSON` is set, uploads the phone bundle to the Play track
      `PLAY_TRACK` (repository variable, default `internal`) and the watch bundle to `wear:<track>`,
      with the "What's new" text.
+
+   Merges that don't change the version release nothing.
+3. Pushing a tag by hand (`git tag v1.4.0 && git push origin v1.4.0`) still works; it must match
+   pubspec. To retry a failed release, re-run the workflow run.
 
 The store listing (texts, icon, feature graphic, screenshots) is uploaded separately with
 **Actions → Play listing → Run workflow** (`.github/workflows/play-listing.yml`, fastlane supply)
@@ -52,8 +53,8 @@ to Wear OS review and confirm you checked the Wear OS app quality guidelines:
   **Install on phone**.
 
 ### 4. First upload
-Run the Release workflow (see above) and download the `play-bundles-<version>` artifact from the
-run. In Play Console:
+Open the latest Release workflow run (see above) and download its `play-bundles-<version>`
+artifact. In Play Console:
 - *Test and release → Testing → Internal testing → Create new release*: upload
   `track-watch-phone-<version>.aab`.
 - *Internal testing → Wear OS only* (track selector at the top): upload `track-watch-wear-<version>.aab`.

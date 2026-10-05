@@ -251,23 +251,24 @@ class Ticking extends StatefulWidget {
 }
 
 class _TickingState extends State<Ticking> {
-  bool _enabled = true;
+  Timer? _timer;
 
-  // Paused while tickers are disabled (e.g. behind the ambient screen) to save power.
-  late final Timer _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-    if (_enabled) setState(() {});
-  });
-
+  // Stopped while tickers are disabled (behind the ambient screen, or the app is in the background) to save power.
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _enabled = TickerMode.valuesOf(context).enabled;
-    _timer; // Start the timer.
+    final enabled = TickerMode.valuesOf(context).enabled;
+    if (!enabled) {
+      _timer?.cancel();
+      _timer = null;
+    } else {
+      _timer ??= Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+    }
   }
 
   @override
   void dispose() {
-    _timer.cancel();
+    _timer?.cancel();
     super.dispose();
   }
 

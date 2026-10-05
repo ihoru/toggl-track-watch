@@ -7,6 +7,7 @@ import com.google.android.gms.wearable.PutDataRequest
 import com.google.android.gms.wearable.Wearable
 import su.iho.trackwatch.shared.Command
 import su.iho.trackwatch.shared.Favorite
+import su.iho.trackwatch.shared.Frequency
 import su.iho.trackwatch.shared.Frequent
 import su.iho.trackwatch.shared.Paths
 import su.iho.trackwatch.shared.Project
@@ -31,6 +32,10 @@ class PhoneStore private constructor(private val context: Context) {
     private val listeners = CopyOnWriteArrayList<(ViewState) -> Unit>()
     private val mainHandler = Handler(Looper.getMainLooper())
     private var lastPublished: ViewState? = null
+
+    /** Until when the watch is open and wants every change, sync status included (see [watchActive]). */
+    @Volatile
+    private var watchActiveUntil = 0L
 
     val token: String? get() = tokens.get()
 
@@ -67,12 +72,23 @@ class PhoneStore private constructor(private val context: Context) {
     /** Local date (yyyy-MM-dd) when [frequent] was last ranked. */
     val frequentDay: String? get() = prefs.getString(K_FREQUENT_DAY, null)
 
+    /** The full 30-day ranking; favorites are removed and the list is cut when publishing. */
     @get:Synchronized
     val frequent: List<Frequent> get() = readArray(K_FREQUENT).map(Frequent::fromJson)
 
+    @get:Synchronized
+    val recent: List<Favorite> get() = readArray(K_RECENT).map(Favorite::fromJson)
+
+    /** Whether [recent] was ever calculated (it was added after [frequent]). */
+    val hasRecent get() = prefs.contains(K_RECENT)
+
     @Synchronized
-    fun setFrequent(list: List<Frequent>, day: String) {
-        prefs.edit().putString(K_FREQUENT, JSONArray(list.map { it.toJson() }).toString()).putString(K_FREQUENT_DAY, day).apply()
+    fun setFrequent(list: List<Frequent>, recent: List<Favorite>, day: String) {
+        prefs.edit()
+            .putString(K_FREQUENT, JSONArray(list.map { it.toJson() }).toString())
+            .putString(K_RECENT, JSONArray(recent.map { it.toJson() }).toString())
+            .putString(K_FREQUENT_DAY, day)
+            .apply()
     }
 
     @Synchronized
@@ -197,7 +213,8 @@ class PhoneStore private constructor(private val context: Context) {
             entries = Reducer.apply(snapshot, pending),
             projects = projects.sortedBy { it.name.lowercase() },
             favorites = favorites,
-            frequent = frequent,
+            frequent = Frequency.withoutFavorites(frequent, favorites),
+            recent = recent,
             acks = readStrings(K_ACKS).takeLast(MAX_ACKS),
             idMap = ids,
             pendingCount = pending.size,
@@ -212,14 +229,29 @@ class PhoneStore private constructor(private val context: Context) {
     fun addListener(listener: (ViewState) -> Unit) = listeners.add(listener)
     fun removeListener(listener: (ViewState) -> Unit) = listeners.remove(listener)
 
-    /** Publishes the current view state to the watch (Data Layer) and the Flutter UI. */
+    /** The watch app, tile or Refresh button asked for fresh data: publish everything for a few minutes. */
+    fun watchActive() {
+        watchActiveUntil = System.currentTimeMillis() + WATCH_ACTIVE_MILLIS
+    }
+
+    /**
+     * Publishes the current view state to the watch (Data Layer) and the Flutter UI.
+     *
+     * Every publish wakes the watch, so background syncs that only move the sync time or the
+     * API quota are not sent; the watch gets them with the next real change or when it asks.
+     */
     @Synchronized
     fun changed() {
         val state = viewState()
         if (state != lastPublished) {
-            lastPublished = state
-            val request = PutDataRequest.create(Paths.STATE).setData(state.toBytes()).setUrgent()
-            Wearable.getDataClient(context).putDataItem(request)
+            val content = state.watchContentHash()
+            val watching = System.currentTimeMillis() < watchActiveUntil
+            if (watching || content != prefs.getString(K_PUBLISHED, null)) {
+                lastPublished = state
+                prefs.edit().putString(K_PUBLISHED, content).apply()
+                val request = PutDataRequest.create(Paths.STATE).setData(state.toBytes()).setUrgent()
+                Wearable.getDataClient(context).putDataItem(request)
+            }
         }
         mainHandler.post { listeners.forEach { it(state) } }
     }
@@ -250,8 +282,11 @@ class PhoneStore private constructor(private val context: Context) {
         private const val K_REFRESH_FORCED = "refreshForced"
         private const val K_FREQUENT = "frequent"
         private const val K_FREQUENT_DAY = "frequentDay"
+        private const val K_RECENT = "recent"
         private const val K_QUOTA_REMAINING = "quotaRemaining"
         private const val K_QUOTA_RESETS_AT = "quotaResetsAt"
+        private const val K_PUBLISHED = "published"
+        private const val WATCH_ACTIVE_MILLIS = 5 * 60_000L
         private const val MAX_ACKS = 200
         private const val MAX_IDS = 100
 
