@@ -101,6 +101,7 @@ class ViewState {
     this.projects = const [],
     this.favorites = const [],
     this.frequent = const [],
+    this.recent = const [],
     this.pendingCount = 0,
     this.lastSync,
     this.error,
@@ -117,8 +118,11 @@ class ViewState {
   final List<Project> projects;
   final List<Favorite> favorites;
 
-  /// Most-tracked timers of the last 30 days, most frequent first.
+  /// Most-tracked timers of the last 30 days that aren't favorites (up to 30), most frequent first.
   final List<Frequent> frequent;
+
+  /// Distinct timers of the last 30 days, most recent first, as ranked once a day on the phone.
+  final List<Favorite> recent;
   final int pendingCount;
   final DateTime? lastSync;
   final String? error;
@@ -144,6 +148,7 @@ class ViewState {
     projects: projects,
     favorites: favorites ?? this.favorites,
     frequent: frequent,
+    recent: recent,
     pendingCount: pendingCount,
     lastSync: lastSync,
     error: error,
@@ -179,6 +184,25 @@ class ViewState {
     return seen.toList();
   }
 
+  /// Distinct timers, most recent first: the synced entries (last 7 days, always fresh), then the
+  /// phone's 30-day list. Leaves out the running timer, which is already on the Now page.
+  List<Favorite> recentTimers({int limit = 30}) {
+    Favorite timer(TimeEntry e) => Favorite(description: e.description.trim(), projectId: e.projectId);
+    final runningEntry = running;
+    final runningTimer = runningEntry == null ? null : timer(runningEntry);
+    final seen = <Favorite>{};
+    final fresh = [
+      for (final e in entries)
+        if (e.description.trim().isNotEmpty || e.projectId != null) timer(e),
+    ];
+    for (final f in [...fresh, ...recent]) {
+      if (f == runningTimer) continue;
+      seen.add(f);
+      if (seen.length >= limit) break;
+    }
+    return seen.toList();
+  }
+
   /// Entries grouped by local day, newest day first.
   List<DayGroup> days() {
     final groups = <DateTime, List<TimeEntry>>{};
@@ -207,6 +231,7 @@ class ViewState {
       projects: list('projects').map(Project.fromJson).toList(),
       favorites: list('favorites').map(Favorite.fromJson).toList(),
       frequent: list('frequent').map(Frequent.fromJson).toList(),
+      recent: list('recent').map(Favorite.fromJson).toList(),
       pendingCount: (json['pendingCount'] as num?)?.toInt() ?? 0,
       lastSync: time('lastSync'),
       error: json['error'] as String?,

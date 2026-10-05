@@ -7,6 +7,7 @@ import com.google.android.gms.wearable.PutDataRequest
 import com.google.android.gms.wearable.Wearable
 import su.iho.trackwatch.shared.Command
 import su.iho.trackwatch.shared.Favorite
+import su.iho.trackwatch.shared.Frequency
 import su.iho.trackwatch.shared.Frequent
 import su.iho.trackwatch.shared.Paths
 import su.iho.trackwatch.shared.Project
@@ -71,12 +72,23 @@ class PhoneStore private constructor(private val context: Context) {
     /** Local date (yyyy-MM-dd) when [frequent] was last ranked. */
     val frequentDay: String? get() = prefs.getString(K_FREQUENT_DAY, null)
 
+    /** The full 30-day ranking; favorites are removed and the list is cut when publishing. */
     @get:Synchronized
     val frequent: List<Frequent> get() = readArray(K_FREQUENT).map(Frequent::fromJson)
 
+    @get:Synchronized
+    val recent: List<Favorite> get() = readArray(K_RECENT).map(Favorite::fromJson)
+
+    /** Whether [recent] was ever calculated (it was added after [frequent]). */
+    val hasRecent get() = prefs.contains(K_RECENT)
+
     @Synchronized
-    fun setFrequent(list: List<Frequent>, day: String) {
-        prefs.edit().putString(K_FREQUENT, JSONArray(list.map { it.toJson() }).toString()).putString(K_FREQUENT_DAY, day).apply()
+    fun setFrequent(list: List<Frequent>, recent: List<Favorite>, day: String) {
+        prefs.edit()
+            .putString(K_FREQUENT, JSONArray(list.map { it.toJson() }).toString())
+            .putString(K_RECENT, JSONArray(recent.map { it.toJson() }).toString())
+            .putString(K_FREQUENT_DAY, day)
+            .apply()
     }
 
     @Synchronized
@@ -201,7 +213,8 @@ class PhoneStore private constructor(private val context: Context) {
             entries = Reducer.apply(snapshot, pending),
             projects = projects.sortedBy { it.name.lowercase() },
             favorites = favorites,
-            frequent = frequent,
+            frequent = Frequency.withoutFavorites(frequent, favorites),
+            recent = recent,
             acks = readStrings(K_ACKS).takeLast(MAX_ACKS),
             idMap = ids,
             pendingCount = pending.size,
@@ -269,6 +282,7 @@ class PhoneStore private constructor(private val context: Context) {
         private const val K_REFRESH_FORCED = "refreshForced"
         private const val K_FREQUENT = "frequent"
         private const val K_FREQUENT_DAY = "frequentDay"
+        private const val K_RECENT = "recent"
         private const val K_QUOTA_REMAINING = "quotaRemaining"
         private const val K_QUOTA_RESETS_AT = "quotaResetsAt"
         private const val K_PUBLISHED = "published"

@@ -1,31 +1,69 @@
 name: Release
 
-# Push a tag like v1.4.0 (matching pubspec.yaml) to publish a GitHub Release with signed APKs and,
-# when PLAY_SERVICE_ACCOUNT_JSON is set, upload the app bundles to Google Play. See docs/PUBLISHING.md.
+# Publishes a GitHub Release with signed APKs and, when PLAY_SERVICE_ACCOUNT_JSON is set, uploads the
+# app bundles to Google Play. See docs/PUBLISHING.md.
+# - Push to main: releases the pubspec.yaml version if its tag v<version> doesn't exist yet, and
+#   creates that tag.
+# - Push a tag like v1.4.0 (matching pubspec.yaml): releases that version.
 on:
   push:
+    branches: [main]
     tags: ['v*']
 
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
-  release:
+  version:
     runs-on: ubuntu-24.04
-    env:
-      PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      release: ${{ steps.check.outputs.release }}
     steps:
       - uses: actions/checkout@v7
 
-      - name: Check tag matches pubspec version
+      - name: Check the version to release
+        id: check
         run: |
-          TAG="${GITHUB_REF_NAME#v}"
           PUBSPEC=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
-          echo "Tag $TAG, pubspec $PUBSPEC"
-          if [ "$TAG" != "$PUBSPEC" ]; then
-            echo "::error::Tag v$TAG doesn't match pubspec.yaml version $PUBSPEC"; exit 1
+          echo "version=$PUBSPEC" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            TAG="${GITHUB_REF_NAME#v}"
+            echo "Tag $TAG, pubspec $PUBSPEC"
+            if [ "$TAG" != "$PUBSPEC" ]; then
+              echo "::error::Tag v$TAG doesn't match pubspec.yaml version $PUBSPEC"; exit 1
+            fi
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          else
+            # The commit the tag points to (dereferenced for annotated tags), empty when untagged.
+            TAGGED=$(git ls-remote --tags origin "refs/tags/v$PUBSPEC" "refs/tags/v$PUBSPEC^{}" \
+              | sort -k2 | tail -1 | cut -f1)
+            if [ -z "$TAGGED" ]; then
+              echo "v$PUBSPEC is not tagged yet; releasing it."
+              echo "release=true" >> "$GITHUB_OUTPUT"
+            elif [ "$TAGGED" = "$GITHUB_SHA" ]; then
+              # A re-run of the run that created the tag (e.g. a later step failed): release again.
+              echo "v$PUBSPEC is tagged on this commit; re-running its release."
+              echo "release=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "v$PUBSPEC is already released from $TAGGED; nothing to release."
+              echo "release=false" >> "$GITHUB_OUTPUT"
+            fi
           fi
-          echo "VERSION=$TAG" >> "$GITHUB_ENV"
+
+  release:
+    needs: version
+    if: needs.version.outputs.release == 'true'
+    runs-on: ubuntu-24.04
+    env:
+      PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
 
       - name: Extract release notes from CHANGELOG.md
         run: |
@@ -97,8 +135,11 @@ jobs:
           done
           ls -lh dist bundles
 
+      # Creates the tag v<version> on this commit when the release comes from a push to main.
       - uses: softprops/action-gh-release@v3
         with:
+          tag_name: v${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
           name: Track Watch ${{ env.VERSION }}
           body_path: notes.md
           files: dist/*.apk

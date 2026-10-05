@@ -36,7 +36,7 @@ Future<void> nextPage(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('five pages: now, favorites, frequent, history, sync', (tester) async {
+  testWidgets('six pages: now, favorites, recent, frequent, history, sync', (tester) async {
     final bridge = FakeWatchBridge(sampleState());
     await pumpWatch(tester, bridge);
 
@@ -50,6 +50,15 @@ void main() {
     expect(find.text('Favorites'), findsOneWidget);
     expect(find.text('Deep work'), findsOneWidget);
 
+    // Recent: newest first, favorites included, the running timer left out.
+    await nextPage(tester);
+    expect(find.text('Recent'), findsOneWidget);
+    expect(find.text('Standup'), findsOneWidget);
+    expect(find.text('Review'), findsOneWidget);
+    expect(find.text('Deep work'), findsOneWidget);
+    expect(find.text('Coding'), findsNothing);
+
+    // Frequent (the phone has already left out favorites).
     await nextPage(tester);
     expect(find.text('Frequent · 30 days'), findsOneWidget);
     expect(find.text('Client A · ×12'), findsOneWidget);
@@ -70,10 +79,10 @@ void main() {
 
     // The last page is remembered.
     await tester.pump(const Duration(seconds: 1));
-    expect(bridge.uiState['page'], 4);
+    expect(bridge.uiState['page'], 5);
   });
 
-  testWidgets('starting a favorite or frequent timer jumps to the current timer', (tester) async {
+  testWidgets('starting a favorite, recent or frequent timer jumps to the current timer', (tester) async {
     final bridge = FakeWatchBridge(sampleState(running: false));
     await pumpWatch(tester, bridge);
     expect(find.text('No timer running'), findsOneWidget);
@@ -85,13 +94,20 @@ void main() {
 
     await nextPage(tester);
     await nextPage(tester);
+    await tapText(tester, 'Review');
+    expect(bridge.calls.last, 'start:Review:2');
+    expect(find.text('No timer running'), findsOneWidget);
+
+    await nextPage(tester);
+    await nextPage(tester);
+    await nextPage(tester);
     await tapText(tester, 'Standup');
     expect(bridge.calls.last, 'start:Standup:2');
     expect(find.text('No timer running'), findsOneWidget);
   });
 
   testWidgets('remembers the last page across launches', (tester) async {
-    final bridge = FakeWatchBridge(sampleState())..uiState = {'page': 2};
+    final bridge = FakeWatchBridge(sampleState())..uiState = {'page': 3};
     await pumpWatch(tester, bridge);
     expect(find.text('Frequent · 30 days'), findsOneWidget);
   });
@@ -145,7 +161,7 @@ void main() {
   testWidgets('history: edit, continue and delete an entry', (tester) async {
     final bridge = FakeWatchBridge(sampleState(running: false))..nextText = 'Retro';
     await pumpWatch(tester, bridge);
-    for (var i = 0; i < 3; i++) {
+    for (var i = 0; i < 4; i++) {
       await nextPage(tester);
     }
 
@@ -233,7 +249,7 @@ void main() {
     final start = state.running!.start;
     final bridge = FakeWatchBridge(state);
     await pumpWatch(tester, bridge);
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < 5; i++) {
       await nextPage(tester);
     }
 
@@ -251,7 +267,7 @@ void main() {
     // Back to Now, open the start-time editor and turn the crown two steps back: 10 minutes.
     Navigator.of(tester.element(find.byType(SettingsScreen))).pop();
     await settle(tester);
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < 5; i++) {
       await tester.fling(find.byType(PageView), const Offset(200, 0), 1000);
       await settle(tester);
     }
@@ -267,7 +283,7 @@ void main() {
   testWidgets('saved settings are loaded on start', (tester) async {
     final bridge = FakeWatchBridge(sampleState())..settings.addAll({'crownStep': 5, 'haptics': false});
     await pumpWatch(tester, bridge);
-    for (var i = 0; i < 4; i++) {
+    for (var i = 0; i < 5; i++) {
       await nextPage(tester);
     }
     await tapText(tester, 'Settings');
