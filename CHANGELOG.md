@@ -4,6 +4,11 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 versions match `version:` in `pubspec.yaml`. The release workflow publishes the section of the
 tagged version as the GitHub Release notes.
 
+## [1.6.1] - 2026-10-05
+### Fixed
+- The watch APK installs on watches with a 32-bit userspace (such as Galaxy Watch 4-6 and Pixel
+  Watch 1-2), which rejected the arm64-only APK with `INSTALL_FAILED_NO_MATCHING_ABIS`.
+
 ## [1.6.0] - 2026-10-05
 ### Added
 - Phone app: ⋮ menu with the privacy policy, source code and app version.

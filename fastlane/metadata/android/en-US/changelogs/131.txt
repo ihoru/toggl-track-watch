@@ -1,0 +1,1 @@
+Release housekeeping: the downloadable watch APK now also supports 32-bit watches.

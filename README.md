@@ -83,10 +83,12 @@ Requires Flutter 3.47+ and the Android SDK.
 flutter pub get
 flutter test
 flutter build apk --release --flavor phone -t lib/main_phone.dart --split-per-abi --target-platform android-arm64
-flutter build apk --release --flavor wear  -t lib/main_wear.dart  --split-per-abi --target-platform android-arm64
+flutter build apk --release --flavor wear  -t lib/main_wear.dart  --target-platform android-arm,android-arm64
 ```
 
-The APKs are written to `build/app/outputs/flutter-apk/app-arm64-v8a-{phone,wear}-release.apk`.
+The APKs are written to `build/app/outputs/flutter-apk/app-arm64-v8a-phone-release.apk` and
+`app-wear-release.apk`. The watch APK includes 32-bit ARM because many Wear OS watches run a 32-bit
+userspace.
 CI (`.github/workflows/build.yml`) runs the tests, builds both apps and launches them in phone and
 Wear OS emulators on every pull request and push to `main`.
 

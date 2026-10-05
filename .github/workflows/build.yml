@@ -69,8 +69,9 @@ jobs:
             echo "No signing secrets; using the runner's debug key."
           fi
 
-      # One APK per CPU type instead of one "fat" APK with all of them: the Pixel phone and
-      # watch only need arm64; x86_64 is built for the emulator smoke tests.
+      # Phone: one APK per CPU type; real phones need arm64, x86_64 is for the emulator smoke test.
+      # Watch: one APK with 32- and 64-bit ARM (as released; many watches run a 32-bit userspace)
+      # plus x86_64, so the smoke test installs the same kind of APK users get.
       - name: Build phone APKs
         run: >-
           flutter build apk --release --flavor phone -t lib/main_phone.dart
@@ -79,7 +80,7 @@ jobs:
       - name: Build watch APKs
         run: >-
           flutter build apk --release --flavor wear -t lib/main_wear.dart
-          --split-per-abi --target-platform android-arm64,android-x64
+          --target-platform android-arm,android-arm64,android-x64
           --split-debug-info=build/symbols/wear
 
       # The bundles Play gets (release.yml); built here so a broken bundle shows up before a release.
@@ -97,9 +98,13 @@ jobs:
         run: |
           ls -l build/app/outputs/flutter-apk/
           mkdir -p dist smoke
-          for f in phone wear; do
-            cp build/app/outputs/flutter-apk/app-arm64-v8a-$f-release.apk "dist/track-watch-$f.apk"
-            cp build/app/outputs/flutter-apk/app-x86_64-$f-release.apk "smoke/app-$f-release.apk"
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-phone-release.apk dist/track-watch-phone.apk
+          cp build/app/outputs/flutter-apk/app-x86_64-phone-release.apk smoke/app-phone-release.apk
+          cp build/app/outputs/flutter-apk/app-wear-release.apk dist/track-watch-wear.apk
+          cp build/app/outputs/flutter-apk/app-wear-release.apk smoke/app-wear-release.apk
+          for abi in armeabi-v7a arm64-v8a x86_64; do
+            unzip -l dist/track-watch-wear.apk | grep -q "lib/$abi/libflutter.so" \
+              || { echo "::error::The watch APK has no $abi libraries"; exit 1; }
           done
           ls -lh dist
 
