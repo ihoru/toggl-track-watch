@@ -86,7 +86,7 @@ flutter build apk --release --flavor wear  -t lib/main_wear.dart  --split-per-ab
 
 The APKs are written to `build/app/outputs/flutter-apk/app-arm64-v8a-{phone,wear}-release.apk`.
 CI (`.github/workflows/build.yml`) runs the tests, builds both apps and launches them in phone and
-Wear OS emulators on every push and pull request.
+Wear OS emulators on every pull request and push to `main`.
 
 ### Signing
 
