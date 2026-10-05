@@ -133,7 +133,8 @@ id `su.iho.trackwatch`, which the Wear OS Data Layer requires. Design notes: [do
 
 - The phone refreshes from Toggl when the watch app or tile opens, after each change, and every
   15 minutes. Projects are refreshed at most once an hour and frequent timers once a day, to stay
-  within Toggl's API quotas.
+  within Toggl's API quotas. A background refresh only wakes the watch when an entry, project,
+  favorite or error actually changed, to save the watch's battery.
 - If Toggl reports the API quota as exhausted (HTTP 402), the phone waits until it resets and then
   sends the queued changes.
 - Starting a favorite from the phone opens the official Toggl app through its

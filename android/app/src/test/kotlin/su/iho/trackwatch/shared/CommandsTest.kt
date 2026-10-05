@@ -107,4 +107,13 @@ class CommandsTest {
         )
         assertEquals(state, ViewState.fromBytes(state.toBytes()))
     }
+
+    @Test
+    fun watchContentIgnoresSyncTimeAndQuota() {
+        val state = ViewState(configured = true, entries = listOf(running), lastSync = 1, quotaRemaining = 30, quotaResetsAt = 5)
+        val synced = state.copy(lastSync = 2, quotaRemaining = 29, quotaResetsAt = 6)
+        assertEquals(state.watchContentHash(), synced.watchContentHash())
+        assertTrue(state.watchContentHash() != state.copy(entries = listOf(done)).watchContentHash())
+        assertTrue(state.watchContentHash() != state.copy(error = "boom").watchContentHash())
+    }
 }

@@ -9,18 +9,21 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
-import android.os.SystemClock
+import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.wear.ongoing.OngoingActivity
 import androidx.wear.ongoing.Status
 import su.iho.trackwatch.shared.ViewState
+import java.text.DateFormat
+import java.util.Date
 
 /** Shows an Ongoing Activity (watch-face icon + notification with Stop) while a timer runs. */
 object OngoingTimer {
     private const val CHANNEL = "timer"
     private const val NOTIFICATION_ID = 1
+    private const val EXTRA_KEY = "su.iho.trackwatch.key"
     private var shownKey: String? = null
 
     /** Re-applies the notification after the setting changed. */
@@ -43,9 +46,14 @@ object OngoingTimer {
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         if (!granted) return
         val title = running.description.ifBlank { "(no description)" }
-        val key = "$title|${running.start}|${running.projectId}"
+        val key = "$title|${running.start}|${running.projectId}|${state.project(running.projectId)?.name}"
         if (shownKey == key) return
+        // After the process restarts (e.g. woken by a phone update), keep a notification that is already right:
+        // re-posting it makes the watch face indicator flash.
+        val shown = context.getSystemService(NotificationManager::class.java).activeNotifications
+            .firstOrNull { it.id == NOTIFICATION_ID }?.notification?.extras?.getString(EXTRA_KEY)
         shownKey = key
+        if (shown == key) return
 
         manager.createNotificationChannel(
             NotificationChannel(CHANNEL, "Running timer", NotificationManager.IMPORTANCE_LOW)
@@ -70,12 +78,15 @@ object OngoingTimer {
             .setWhen(running.start)
             .setContentIntent(open)
             .addAction(R.drawable.ic_stop, "Stop", stop)
+            .addExtras(Bundle().apply { putString(EXTRA_KEY, key) })
 
-        val elapsedBase = running.start - System.currentTimeMillis() + SystemClock.elapsedRealtime()
+        // A static status: a running stopwatch here is redrawn every second wherever the system
+        // shows the ongoing activity, which flickers and keeps the screen busy.
+        val since = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(running.start))
         val status = Status.Builder()
-            .addTemplate("#title# · #time#")
+            .addTemplate("#title# · #since#")
             .addPart("title", Status.TextPart(title))
-            .addPart("time", Status.StopwatchPart(elapsedBase))
+            .addPart("since", Status.TextPart("since $since"))
             .build()
         OngoingActivity.Builder(context, NOTIFICATION_ID, builder)
             .setStaticIcon(R.drawable.ic_timer)
