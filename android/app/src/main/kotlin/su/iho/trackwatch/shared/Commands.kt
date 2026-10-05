@@ -79,7 +79,7 @@ object QueueLogic {
 
 /** Ranks what was tracked most often: grouped by (description, project), most frequent first. */
 object Frequency {
-    fun rank(entries: List<TimeEntry>, limit: Int = 15): List<Frequent> =
+    fun rank(entries: List<TimeEntry>, limit: Int = Int.MAX_VALUE): List<Frequent> =
         entries
             .filter { it.description.isNotBlank() || it.projectId != null }
             .groupBy { it.description.trim() to it.projectId }
@@ -87,4 +87,19 @@ object Frequency {
             .sortedWith(compareByDescending<Triple<Pair<String, Long?>, Int, Long>> { it.second }.thenByDescending { it.third })
             .take(limit)
             .map { (key, count, _) -> Frequent(key.first, key.second, count) }
+
+    /** The full [ranking] without favorites (compared by trimmed description), then cut to [limit]. */
+    fun withoutFavorites(ranking: List<Frequent>, favorites: List<Favorite>, limit: Int = 30): List<Frequent> {
+        val favs = favorites.map { Favorite(it.description.trim(), it.projectId) }.toSet()
+        return ranking.filter { Favorite(it.description, it.projectId) !in favs }.take(limit)
+    }
+
+    /** Distinct (description, project) pairs, most recently started first. */
+    fun recent(entries: List<TimeEntry>, limit: Int = 30): List<Favorite> =
+        entries
+            .filter { it.description.isNotBlank() || it.projectId != null }
+            .sortedByDescending { it.start }
+            .map { Favorite(it.description.trim(), it.projectId) }
+            .distinct()
+            .take(limit)
 }

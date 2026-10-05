@@ -13,6 +13,7 @@ phone app. Start, stop and edit your time entries from your wrist.
 <p>
   <img src="docs/screenshots/watch-now.png" width="200" alt="Running timer">
   <img src="docs/screenshots/watch-favorites.png" width="200" alt="Favorites">
+  <img src="docs/screenshots/watch-recent.png" width="200" alt="Recent timers">
   <img src="docs/screenshots/watch-frequent.png" width="200" alt="Frequent timers">
   <img src="docs/screenshots/watch-history.jpg" width="200" alt="History">
   <img src="docs/screenshots/watch-tile.png" width="200" alt="Tile">
@@ -22,12 +23,13 @@ phone app. Start, stop and edit your time entries from your wrist.
 
 ## Features
 
-**Watch:** five pages you swipe between.
+**Watch:** six pages you swipe between.
 - **Now:** the running timer with Stop and Cancel, **Edit start time** (turn the crown or tap
   ±5 / ±15 min), Continue the last entry, and New timer (description by voice or keyboard, project
   from a list).
 - **Favorites.**
-- **Frequent:** your most-tracked timers of the last 30 days.
+- **Recent:** up to 30 distinct timers of the last 30 days, most recent first.
+- **Frequent:** your most-tracked timers of the last 30 days that aren't favorites.
 - **History:** the last 7 days with daily totals. Continue, edit or delete entries.
 - **Sync:** status, API requests left, Refresh, Open on phone and **Settings**.
 - Plus a **tile** (running timer with Open, up to six timers in two columns), a **complication** with
@@ -132,7 +134,7 @@ id `su.iho.trackwatch`, which the Wear OS Data Layer requires. Design notes: [do
 ## How it works
 
 - The phone refreshes from Toggl when the watch app or tile opens, after each change, and every
-  15 minutes. Projects are refreshed at most once an hour and frequent timers once a day, to stay
+  15 minutes. Projects are refreshed at most once an hour and frequent and recent timers once a day, to stay
   within Toggl's API quotas. A background refresh only wakes the watch when an entry, project,
   favorite or error actually changed, to save the watch's battery.
 - If Toggl reports the API quota as exhausted (HTTP 402), the phone waits until it resets and then
