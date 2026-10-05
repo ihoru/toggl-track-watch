@@ -4,9 +4,11 @@
 1. Bump `version:` in `pubspec.yaml` and add a `## [x.y.z]` section to `CHANGELOG.md`
    (plus `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` for Play, where
    versionCode = build × 10 for the phone and build × 10 + 1 for the watch).
-2. Merge to `main`, then tag: `git tag v1.4.0 && git push origin v1.4.0`.
-3. `.github/workflows/release.yml` checks the tag matches pubspec, builds signed APKs and app bundles,
-   and publishes a GitHub Release with the APKs and the changelog section.
+2. Merge to `main`. `.github/workflows/release.yml` sees that `v<version>` isn't tagged yet, builds
+   signed APKs and app bundles, and publishes a GitHub Release (creating the tag) with the APKs and
+   the changelog section. Merges that don't change the version release nothing.
+3. Pushing a tag by hand (`git tag v1.4.0 && git push origin v1.4.0`) still works; it must match
+   pubspec. To retry a failed release, re-run the workflow run.
 
 ## Google Play (one-time setup)
 1. **Developer account**: <https://play.google.com/console/signup> (one-time fee).

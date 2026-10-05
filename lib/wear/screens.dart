@@ -18,11 +18,11 @@ void startTimer(BuildContext context, String description, int? projectId) {
   Navigator.of(context).popUntil((r) => r.isFirst);
 }
 
-/// The five sections, swiped left/right: Now, Favorites, Frequent, History, Sync.
+/// The six sections, swiped left/right: Now, Favorites, Recent, Frequent, History, Sync.
 class HomePager extends StatefulWidget {
   const HomePager({super.key});
 
-  static const pageCount = 5;
+  static const pageCount = 6;
 
   @override
   State<HomePager> createState() => _HomePagerState();
@@ -107,9 +107,10 @@ class _HomePagerState extends State<HomePager> {
             children: [
               NowPage(active: _page == 0),
               FavoritesPage(active: _page == 1),
-              FrequentPage(active: _page == 2),
-              HistoryPage(active: _page == 3),
-              SyncPage(active: _page == 4),
+              RecentPage(active: _page == 2),
+              FrequentPage(active: _page == 3),
+              HistoryPage(active: _page == 4),
+              SyncPage(active: _page == 5),
             ],
           ),
         ),
@@ -210,6 +211,38 @@ class FavoritesPage extends StatelessWidget {
             projectId: f.projectId,
             state: state,
             onTap: () => startTimer(context, f.description, f.projectId),
+          ),
+      ],
+    );
+  }
+}
+
+class RecentPage extends StatelessWidget {
+  const RecentPage({super.key, this.active = true});
+
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final state = WatchScope.of(context).state;
+    final recent = state.recentTimers();
+    return RoundList(
+      storageKey: 'recent',
+      active: active,
+      swipeBack: false,
+      children: [
+        const WearHeader('Recent'),
+        if (recent.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(12),
+            child: Text('Nothing tracked in the last 30 days yet.', textAlign: TextAlign.center),
+          ),
+        for (final r in recent)
+          _TimerChip(
+            description: r.description,
+            projectId: r.projectId,
+            state: state,
+            onTap: () => startTimer(context, r.description, r.projectId),
           ),
       ],
     );
