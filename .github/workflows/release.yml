@@ -124,17 +124,27 @@ jobs:
             echo "::error::Releases must be signed: set the TRACKWATCH_KEYSTORE_* secrets."; exit 1
           fi
 
-      - name: Build APKs (arm64) and app bundles
+      # Phone APK: arm64 only. Watch APK: 32- and 64-bit ARM, because many Wear OS watches (Galaxy
+      # Watch 4-6, Pixel Watch 1-2) run a 32-bit userspace and reject an arm64-only APK with
+      # INSTALL_FAILED_NO_MATCHING_ABIS.
+      - name: Build APKs and app bundles
         run: |
+          flutter build apk --release --flavor phone -t lib/main_phone.dart \
+            --split-per-abi --target-platform android-arm64 --split-debug-info=build/symbols/phone
+          flutter build apk --release --flavor wear -t lib/main_wear.dart \
+            --target-platform android-arm,android-arm64 --split-debug-info=build/symbols/wear
           for f in phone wear; do
-            flutter build apk --release --flavor $f -t lib/main_$f.dart \
-              --split-per-abi --target-platform android-arm64 --split-debug-info=build/symbols/$f
             flutter build appbundle --release --flavor $f -t lib/main_$f.dart \
               --split-debug-info=build/symbols/$f-bundle
           done
           mkdir -p dist bundles
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-phone-release.apk "dist/track-watch-phone-$VERSION.apk"
+          cp build/app/outputs/flutter-apk/app-wear-release.apk "dist/track-watch-wear-$VERSION.apk"
+          for abi in armeabi-v7a arm64-v8a; do
+            unzip -l "dist/track-watch-wear-$VERSION.apk" | grep -q "lib/$abi/libflutter.so" \
+              || { echo "::error::The watch APK has no $abi libraries"; exit 1; }
+          done
           for f in phone wear; do
-            cp build/app/outputs/flutter-apk/app-arm64-v8a-$f-release.apk "dist/track-watch-$f-$VERSION.apk"
             cp build/app/outputs/bundle/${f}Release/app-$f-release.aab "bundles/track-watch-$f-$VERSION.aab"
           done
           ls -lh dist bundles
