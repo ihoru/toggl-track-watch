@@ -4,6 +4,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.security.MessageDigest
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
@@ -156,6 +157,16 @@ data class ViewState(
         .put("phoneReachable", phoneReachable)
 
     fun toBytes(): ByteArray = gzip(toJson().toString())
+
+    /**
+     * Fingerprint of what the watch needs to be woken for: everything except the sync time and
+     * the API quota, which change on every background sync.
+     */
+    fun watchContentHash(): String {
+        val json = copy(lastSync = null, quotaRemaining = null, quotaResetsAt = null).toJson().toString()
+        return MessageDigest.getInstance("SHA-256").digest(json.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+    }
 
     companion object {
         fun fromJson(o: JSONObject) = ViewState(

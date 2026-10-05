@@ -122,14 +122,27 @@ class WatchStore private constructor(private val context: Context) {
     fun addListener(listener: (ViewState) -> Unit) = listeners.add(listener)
     fun removeListener(listener: (ViewState) -> Unit) = listeners.remove(listener)
 
+    // What the tile and complication last showed; Unit until the first update in this process.
+    private var tileKey: Any? = Unit
+    private var complicationKey: Any? = Unit
+
     private fun changed() {
         val state = view()
         mainHandler.post { listeners.forEach { it(state) } }
         OngoingTimer.update(context, state)
-        TileService.getUpdater(context).requestUpdate(TimerTileService::class.java)
-        ComplicationDataSourceUpdateRequester
-            .create(context, ComponentName(context, TimerComplicationService::class.java))
-            .requestUpdateAll()
+        // Each update wakes the tile or the watch face, so only send them when what they show changed.
+        val running = state.running?.copy(pending = false)
+        val tile = listOf(state.configured, running, state.projects, state.favorites, state.frequent)
+        if (tile != tileKey) {
+            tileKey = tile
+            TileService.getUpdater(context).requestUpdate(TimerTileService::class.java)
+        }
+        if (running != complicationKey) {
+            complicationKey = running
+            ComplicationDataSourceUpdateRequester
+                .create(context, ComponentName(context, TimerComplicationService::class.java))
+                .requestUpdateAll()
+        }
     }
 
     companion object {

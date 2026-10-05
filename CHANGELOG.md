@@ -4,6 +4,17 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 versions match `version:` in `pubspec.yaml`. The release workflow publishes the section of the
 tagged version as the GitHub Release notes.
 
+## [1.4.2] - 2026-10-05
+### Fixed
+- Watch battery: background syncs on the phone no longer wake the watch when nothing changed (only
+  the sync time and API quota moved). Timers started or stopped elsewhere still reach the watch
+  within 15 minutes; the watch's Sync page catches up as soon as the app or tile opens.
+- Watch battery: the tile no longer refreshes itself every minute, and the tile and complication
+  are only updated when what they show changed.
+- The running-timer indicator no longer flickers: it shows "description · since 9:41" instead of a
+  ticking stopwatch, and isn't re-posted when the watch app restarts in the background.
+- Running clocks in the watch app stop ticking while the app is in the background.
+
 ## [1.4.1] - 2026-10-02
 ### Changed
 - Watch tile: while a timer runs, the bottom button is **Open** (opens the app) instead of **Stop**.

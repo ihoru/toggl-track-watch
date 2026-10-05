@@ -1,0 +1,1 @@
+Watch battery: fewer background wake-ups (no tile auto-refresh, no watch updates for unchanged phone syncs) and a steady running-timer indicator instead of a flickering stopwatch.
