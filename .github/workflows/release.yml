@@ -23,14 +23,17 @@ jobs:
     outputs:
       version: ${{ steps.check.outputs.version }}
       release: ${{ steps.check.outputs.release }}
+      build: ${{ steps.check.outputs.build }}
     steps:
       - uses: actions/checkout@v7
 
       - name: Check the version to release
         id: check
         run: |
-          PUBSPEC=$(grep '^version:' pubspec.yaml | awk '{print $2}' | cut -d+ -f1)
+          FULL=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          PUBSPEC=${FULL%%+*}
           echo "version=$PUBSPEC" >> "$GITHUB_OUTPUT"
+          echo "build=${FULL##*+}" >> "$GITHUB_OUTPUT"
           if [ "$GITHUB_REF_TYPE" = tag ]; then
             TAG="${GITHUB_REF_NAME#v}"
             echo "Tag $TAG, pubspec $PUBSPEC"
@@ -62,6 +65,7 @@ jobs:
     env:
       PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
       VERSION: ${{ needs.version.outputs.version }}
+      BUILD: ${{ needs.version.outputs.build }}
     steps:
       - uses: actions/checkout@v7
 
@@ -150,24 +154,39 @@ jobs:
           name: play-bundles-${{ env.VERSION }}
           path: bundles/*.aab
 
+      # Play's "What's new" text: fastlane/metadata/android/en-US/changelogs/<versionCode>.txt.
+      - name: Play release notes
+        if: env.PLAY_JSON != ''
+        run: |
+          for pair in phone:$((BUILD * 10)) wear:$((BUILD * 10 + 1)); do
+            f=${pair%%:*}; code=${pair##*:}
+            src=fastlane/metadata/android/en-US/changelogs/$code.txt
+            [ -f "$src" ] || { echo "::error::Missing $src"; exit 1; }
+            [ "$(wc -m < "$src")" -le 500 ] || { echo "::error::$src is longer than Play's 500 characters"; exit 1; }
+            mkdir -p "whatsnew/$f" && cp "$src" "whatsnew/$f/whatsnew-en-US"
+          done
+
       # Until the app has passed its first Play review, Play only accepts draft releases; set the
-      # repository variable PLAY_RELEASE_STATUS to "completed" afterwards.
-      - name: Upload phone bundle to Google Play (internal)
+      # repository variable PLAY_RELEASE_STATUS to "completed" afterwards. PLAY_TRACK picks the track
+      # (internal by default; alpha, beta or production); the watch uses the Wear OS track of that name.
+      - name: Upload phone bundle to Google Play
         if: env.PLAY_JSON != ''
         uses: r0adkll/upload-google-play@v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: su.iho.trackwatch
           releaseFiles: bundles/track-watch-phone-${{ env.VERSION }}.aab
-          tracks: internal
+          whatsNewDirectory: whatsnew/phone
+          tracks: ${{ vars.PLAY_TRACK || 'internal' }}
           status: ${{ vars.PLAY_RELEASE_STATUS || 'draft' }}
 
-      - name: Upload watch bundle to Google Play (Wear OS internal)
+      - name: Upload watch bundle to Google Play (Wear OS track)
         if: env.PLAY_JSON != ''
         uses: r0adkll/upload-google-play@v1.1.5
         with:
           serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           packageName: su.iho.trackwatch
           releaseFiles: bundles/track-watch-wear-${{ env.VERSION }}.aab
-          tracks: wear:internal
+          whatsNewDirectory: whatsnew/wear
+          tracks: wear:${{ vars.PLAY_TRACK || 'internal' }}
           status: ${{ vars.PLAY_RELEASE_STATUS || 'draft' }}

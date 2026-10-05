@@ -55,6 +55,9 @@ abstract class PhoneBridge {
   /// Installed app version, e.g. "1.1.0 (2)".
   Future<String> appVersion();
 
+  /// Opens [url] in the browser.
+  Future<void> openUrl(String url);
+
   /// Starts [favorite] in the official Toggl app via its start link, or through Track Watch's own
   /// Toggl connection when no app handles the link. Returns [StartResult.togglApp] or [StartResult.api].
   Future<StartResult> startTimer(Favorite favorite);
@@ -109,6 +112,9 @@ class ChannelPhoneBridge implements PhoneBridge {
 
   @override
   Future<String> appVersion() async => await _methods.invokeMethod<String>('appVersion') ?? '';
+
+  @override
+  Future<void> openUrl(String url) => _methods.invokeMethod('openUrl', {'url': url});
 
   @override
   Future<bool> getCompact() async => await _methods.invokeMethod<bool>('getCompact') ?? false;

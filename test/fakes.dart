@@ -208,6 +208,11 @@ class FakePhoneBridge implements PhoneBridge {
   @override
   Future<String> appVersion() async => '1.1.0 (2)';
 
+  final opened = <String>[];
+
+  @override
+  Future<void> openUrl(String url) async => opened.add(url);
+
   @override
   Future<void> setCompact(bool compact) async => this.compact = compact;
 }

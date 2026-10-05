@@ -82,6 +82,17 @@ jobs:
           --split-per-abi --target-platform android-arm64,android-x64
           --split-debug-info=build/symbols/wear
 
+      # The bundles Play gets (release.yml); built here so a broken bundle shows up before a release.
+      - name: Build app bundles
+        run: |
+          for f in phone wear; do
+            flutter build appbundle --release --flavor $f -t lib/main_$f.dart --split-debug-info=build/symbols/$f-bundle
+            AAB=build/app/outputs/bundle/${f}Release/app-$f-release.aab
+            ls -lh "$AAB"
+            unzip -l "$AAB" | grep -q 'BUNDLE-METADATA/com.android.tools.build.debugsymbols/' \
+              || { echo "::error::$AAB has no native debug symbols"; exit 1; }
+          done
+
       - name: Collect APKs
         run: |
           ls -l build/app/outputs/flutter-apk/

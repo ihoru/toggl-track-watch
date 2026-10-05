@@ -77,6 +77,8 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Native symbol tables go into the app bundle, so Play can symbolicate native crashes.
+            ndk { debugSymbolLevel = "SYMBOL_TABLE" }
         }
     }
 
