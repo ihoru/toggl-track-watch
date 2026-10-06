@@ -98,8 +98,8 @@ flutter {
 
 dependencies {
     implementation("com.google.android.gms:play-services-wearable:18.2.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.11.0")
     implementation("androidx.core:core-ktx:1.15.0")
 
     "phoneImplementation"("androidx.work:work-runtime-ktx:2.10.0")
