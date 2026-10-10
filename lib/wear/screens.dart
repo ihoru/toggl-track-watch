@@ -18,7 +18,7 @@ void startTimer(BuildContext context, String description, int? projectId) {
   Navigator.of(context).popUntil((r) => r.isFirst);
 }
 
-/// The six sections, swiped left/right: Now, Favorites, Recent, Frequent, History, Sync.
+/// The six sections, swiped left/right: Now, Favorites, History, Recent, Frequent, Sync.
 class HomePager extends StatefulWidget {
   const HomePager({super.key});
 
@@ -107,9 +107,9 @@ class _HomePagerState extends State<HomePager> {
             children: [
               NowPage(active: _page == 0),
               FavoritesPage(active: _page == 1),
-              RecentPage(active: _page == 2),
-              FrequentPage(active: _page == 3),
-              HistoryPage(active: _page == 4),
+              HistoryPage(active: _page == 2),
+              RecentPage(active: _page == 3),
+              FrequentPage(active: _page == 4),
               SyncPage(active: _page == 5),
             ],
           ),

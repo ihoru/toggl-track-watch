@@ -36,7 +36,7 @@ Future<void> nextPage(WidgetTester tester) async {
 }
 
 void main() {
-  testWidgets('six pages: now, favorites, recent, frequent, history, sync', (tester) async {
+  testWidgets('six pages: now, favorites, history, recent, frequent, sync', (tester) async {
     final bridge = FakeWatchBridge(sampleState());
     await pumpWatch(tester, bridge);
 
@@ -49,6 +49,9 @@ void main() {
     await nextPage(tester);
     expect(find.text('Favorites'), findsOneWidget);
     expect(find.text('Deep work'), findsOneWidget);
+
+    await nextPage(tester);
+    expect(find.textContaining('Today'), findsOneWidget);
 
     // Recent: newest first, favorites included, the running timer left out.
     await nextPage(tester);
@@ -63,9 +66,6 @@ void main() {
     expect(find.text('Frequent · 30 days'), findsOneWidget);
     expect(find.text('Client A · ×12'), findsOneWidget);
     expect(find.text('Internal · ×5'), findsOneWidget);
-
-    await nextPage(tester);
-    expect(find.textContaining('Today'), findsOneWidget);
 
     await nextPage(tester);
     expect(find.text('27 Toggl API requests left'), findsOneWidget);
@@ -94,20 +94,21 @@ void main() {
 
     await nextPage(tester);
     await nextPage(tester);
+    await nextPage(tester);
     await tapText(tester, 'Review');
     expect(bridge.calls.last, 'start:Review:2');
     expect(find.text('No timer running'), findsOneWidget);
 
-    await nextPage(tester);
-    await nextPage(tester);
-    await nextPage(tester);
+    for (var i = 0; i < 4; i++) {
+      await nextPage(tester);
+    }
     await tapText(tester, 'Standup');
     expect(bridge.calls.last, 'start:Standup:2');
     expect(find.text('No timer running'), findsOneWidget);
   });
 
   testWidgets('remembers the last page across launches', (tester) async {
-    final bridge = FakeWatchBridge(sampleState())..uiState = {'page': 3};
+    final bridge = FakeWatchBridge(sampleState())..uiState = {'page': 4};
     await pumpWatch(tester, bridge);
     expect(find.text('Frequent · 30 days'), findsOneWidget);
   });
@@ -161,9 +162,8 @@ void main() {
   testWidgets('history: edit, continue and delete an entry', (tester) async {
     final bridge = FakeWatchBridge(sampleState(running: false))..nextText = 'Retro';
     await pumpWatch(tester, bridge);
-    for (var i = 0; i < 4; i++) {
-      await nextPage(tester);
-    }
+    await nextPage(tester);
+    await nextPage(tester);
 
     expect(find.textContaining('Today'), findsOneWidget);
     await tapText(tester, 'Standup');
