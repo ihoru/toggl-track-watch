@@ -60,6 +60,9 @@ class TogglApi(private val token: String, private val onQuota: (remaining: Int, 
         return if (o.isNull("server_deleted_at")) parseEntry(o) else null
     }
 
+    /** One entry by id, also outside the synced date range. */
+    fun entry(id: Long): TimeEntry = parseEntry(JSONObject(call("GET", "/me/time_entries/$id")))
+
     fun create(wid: Long, description: String, projectId: Long?, start: Long): TimeEntry {
         val body = JSONObject()
             .put("created_with", "TrackWatch")

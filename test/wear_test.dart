@@ -244,6 +244,76 @@ void main() {
     expect(saved, greaterThan(start.millisecondsSinceEpoch));
   });
 
+  testWidgets('history: edit start and end time of a stopped entry', (tester) async {
+    final state = sampleState(running: false);
+    final entry = state.entry('8')!;
+    final bridge = FakeWatchBridge(state);
+    await pumpWatch(tester, bridge);
+    for (var i = 0; i < 2; i++) {
+      await nextPage(tester);
+    }
+    await tapText(tester, 'Coding');
+
+    await tapText(tester, 'Edit end time');
+    expect(find.text('End time'), findsOneWidget);
+    await tapText(tester, '−15');
+    await tapText(tester, 'Save');
+    expect(bridge.calls.last, 'setStop:8:${entry.stop!.subtract(const Duration(minutes: 15)).millisecondsSinceEpoch}');
+
+    // The end can't move before the start.
+    await tapText(tester, 'Edit end time');
+    for (var i = 0; i < 10; i++) {
+      await tapText(tester, '−15');
+    }
+    await tapText(tester, 'Save');
+    expect(bridge.calls.last, 'setStop:8:${entry.start.millisecondsSinceEpoch}');
+
+    await tapText(tester, 'Edit start time');
+    await tapText(tester, '−5');
+    await tapText(tester, 'Save');
+    expect(bridge.calls.last, 'setStart:8:${entry.start.subtract(const Duration(minutes: 5)).millisecondsSinceEpoch}');
+
+    // The start can't move past the end.
+    await tapText(tester, 'Edit start time');
+    for (var i = 0; i < 10; i++) {
+      await tapText(tester, '+15');
+    }
+    await tapText(tester, 'Save');
+    expect(bridge.calls.last, 'setStart:8:${entry.stop!.millisecondsSinceEpoch}');
+  });
+
+  testWidgets('an offline entry stays open once it gets its Toggl id', (tester) async {
+    final start = DateTime.now().subtract(const Duration(hours: 1));
+    TimeEntry entry(String id, DateTime start) => TimeEntry(
+      id: id,
+      description: 'Offline',
+      projectId: null,
+      start: start,
+      stop: start.add(const Duration(minutes: 30)),
+    );
+    final bridge = FakeWatchBridge(ViewState(configured: true, entries: [entry('local-1', start)]));
+    await pumpWatch(tester, bridge);
+    for (var i = 0; i < 2; i++) {
+      await nextPage(tester);
+    }
+    await tapText(tester, 'Offline');
+
+    // Synced with an edited start time: found through the id map, not by start.
+    final moved = start.subtract(const Duration(minutes: 5));
+    bridge.emit(ViewState(configured: true, entries: [entry('77', moved)], idMap: const {'local-1': '77'}));
+    await settle(tester);
+    expect(find.text('Entry deleted'), findsNothing);
+    await tapText(tester, 'Edit end time');
+    expect(find.text('End time'), findsOneWidget);
+  });
+
+  testWidgets('a running timer has no end time to edit', (tester) async {
+    await pumpWatch(tester, FakeWatchBridge(sampleState()));
+    await tapText(tester, 'Coding');
+    expect(find.text('Edit start time'), findsOneWidget);
+    expect(find.text('Edit end time'), findsNothing);
+  });
+
   testWidgets('settings: toggles are saved and the crown step applies', (tester) async {
     final state = sampleState();
     final start = state.running!.start;

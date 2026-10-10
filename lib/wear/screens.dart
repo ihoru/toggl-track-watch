@@ -517,7 +517,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         toggle('Vibration', 'On start, stop and save', model.haptics, (v) => model.setSetting('haptics', v)),
         WearChip(
           label: 'Crown step: ${model.crownStep} min',
-          secondary: 'Editing start time · tap to change',
+          secondary: 'Editing start/end time · tap to change',
           icon: Icons.av_timer,
           onTap: () => model.setSetting('crownStep', model.crownStep == 1 ? 5 : 1),
         ),
@@ -540,16 +540,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 }
 
-/// Details and actions for one entry: stop, continue, edit, delete.
+/// Details and actions for one entry: stop, continue, edit, edit start/end time, delete.
 class EntryScreen extends StatelessWidget {
   const EntryScreen({super.key, required this.entry});
 
-  /// The entry as it was when opened; live data is looked up by id (or by start
-  /// time once an offline-created entry receives its Toggl id).
+  /// The entry as it was when opened; live data is looked up by id (also once an
+  /// offline-created entry receives its Toggl id), or else by start time.
   final TimeEntry entry;
 
   TimeEntry? _live(ViewState state) {
-    final byId = state.entry(entry.id);
+    final byId = state.entry(entry.id) ?? state.entry(state.idMap[entry.id] ?? entry.id);
     if (byId != null) return byId;
     for (final e in state.entries) {
       if (e.start == entry.start) return e;
@@ -614,11 +614,16 @@ class EntryScreen extends StatelessWidget {
             color: Colors.lightGreenAccent,
             onTap: () => startTimer(context, e.description, e.projectId),
           ),
-        if (e.isRunning)
+        WearChip(
+          label: 'Edit start time',
+          icon: Icons.schedule,
+          onTap: () => _push(context, TimeScreen(entry: e)),
+        ),
+        if (!e.isRunning)
           WearChip(
-            label: 'Edit start time',
-            icon: Icons.schedule,
-            onTap: () => _push(context, StartTimeScreen(entry: e)),
+            label: 'Edit end time',
+            icon: Icons.update,
+            onTap: () => _push(context, TimeScreen(entry: e, end: true)),
           ),
         WearChip(
           label: 'Edit',
@@ -702,21 +707,25 @@ class _EditScreenState extends State<EditScreen> {
   }
 }
 
-/// Moves the start time of an entry: turn the crown (one minute per step) or tap ±5 / ±15.
-class StartTimeScreen extends StatefulWidget {
-  const StartTimeScreen({super.key, required this.entry});
+/// Moves the start (or, with [end], the end) time of an entry: turn the crown (one minute
+/// per step) or tap ±5 / ±15. Times stay between the entry's other end and now.
+class TimeScreen extends StatefulWidget {
+  const TimeScreen({super.key, required this.entry, this.end = false});
 
   final TimeEntry entry;
 
+  /// Edits the end time of a stopped entry instead of the start time.
+  final bool end;
+
   @override
-  State<StartTimeScreen> createState() => _StartTimeScreenState();
+  State<TimeScreen> createState() => _TimeScreenState();
 }
 
-class _StartTimeScreenState extends State<StartTimeScreen> {
+class _TimeScreenState extends State<TimeScreen> {
   /// Crown scroll distance (logical pixels) per step (1 or 5 minutes, see Settings).
   static const _pixelsPerMinute = 18.0;
 
-  late DateTime _start = widget.entry.start;
+  late DateTime _time = widget.end ? widget.entry.stop! : widget.entry.start;
   double _crown = 0;
   StreamSubscription<double>? _rotary;
 
@@ -736,12 +745,15 @@ class _StartTimeScreenState extends State<StartTimeScreen> {
   }
 
   void _move(int minutes) {
+    final entry = widget.entry;
     final now = DateTime.now();
-    var next = _start.add(Duration(minutes: minutes));
-    if (next.isAfter(now)) next = now;
-    if (next == _start) return;
+    var next = _time.add(Duration(minutes: minutes));
+    final latest = !widget.end && entry.stop != null && entry.stop!.isBefore(now) ? entry.stop! : now;
+    if (next.isAfter(latest)) next = latest;
+    if (widget.end && next.isBefore(entry.start)) next = entry.start;
+    if (next == _time) return;
     WatchScope.read(context).haptic(light: true);
-    setState(() => _start = next);
+    setState(() => _time = next);
   }
 
   @override
@@ -775,20 +787,24 @@ class _StartTimeScreenState extends State<StartTimeScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text('Start time', style: theme.textTheme.labelMedium?.copyWith(color: Colors.white70)),
                 Text(
-                  formatDay(context, DateTime(_start.year, _start.month, _start.day)),
+                  widget.end ? 'End time' : 'Start time',
+                  style: theme.textTheme.labelMedium?.copyWith(color: Colors.white70),
+                ),
+                Text(
+                  formatDay(context, DateTime(_time.year, _time.month, _time.day)),
                   style: theme.textTheme.bodySmall,
                 ),
                 Text(
-                  formatTime(context, _start),
+                  formatTime(context, _time),
                   style: theme.textTheme.displaySmall?.copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
                 ),
                 Ticking(
-                  builder: (context) => Text(
-                    'running ${formatClock(DateTime.now().difference(_start))}',
-                    style: theme.textTheme.bodySmall?.copyWith(color: Colors.white60),
-                  ),
+                  builder: (context) => Text(switch ((widget.end, widget.entry.stop)) {
+                    (true, _) => 'duration ${formatClock(_time.difference(widget.entry.start))}',
+                    (false, final stop?) => 'duration ${formatClock(stop.difference(_time))}',
+                    (false, null) => 'running ${formatClock(DateTime.now().difference(_time))}',
+                  }, style: theme.textTheme.bodySmall?.copyWith(color: Colors.white60)),
                 ),
                 const SizedBox(height: 4),
                 // Scales down on narrow screens instead of overflowing.
@@ -805,7 +821,12 @@ class _StartTimeScreenState extends State<StartTimeScreen> {
                   label: const Text('Save'),
                   onPressed: () {
                     WatchScope.read(context).haptic();
-                    WatchScope.read(context).bridge.setStart(widget.entry.id, _start);
+                    final bridge = WatchScope.read(context).bridge;
+                    if (widget.end) {
+                      bridge.setStop(widget.entry.id, _time);
+                    } else {
+                      bridge.setStart(widget.entry.id, _time);
+                    }
                     Navigator.of(context).pop();
                   },
                 ),

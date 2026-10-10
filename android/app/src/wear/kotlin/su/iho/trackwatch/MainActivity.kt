@@ -92,6 +92,10 @@ class MainActivity : FlutterActivity() {
                     store.setStart(entryId(), call.argument<Number>("start")!!.toLong())
                     result.success(null)
                 }
+                "setStop" -> {
+                    store.setStop(entryId(), call.argument<Number>("stop")!!.toLong())
+                    result.success(null)
+                }
                 "getUiState" -> result.success(uiPrefs.getString("state", "{}"))
                 "setUiState" -> {
                     uiPrefs.edit().putString("state", call.argument<String>("state") ?: "{}").apply()

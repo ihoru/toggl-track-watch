@@ -21,7 +21,12 @@ object Reducer {
                 }
                 CommandType.DELETE -> result.removeAll { it.id == cmd.entryId }
                 CommandType.SET_START -> result.replaceAll {
-                    if (it.id == cmd.entryId && cmd.start != null) it.copy(start = cmd.start, pending = true) else it
+                    if (it.id == cmd.entryId && cmd.start != null) {
+                        val stop = if (cmd.stop != null && !it.isRunning) maxOf(cmd.stop, cmd.start) else it.stop
+                        it.copy(start = cmd.start, stop = stop, pending = true)
+                    } else {
+                        it
+                    }
                 }
             }
         }
@@ -49,6 +54,10 @@ object CommandFactory {
     /** Moves the entry's start time; it can't be later than [now]. */
     fun setStart(entryId: String, start: Long, now: Long) =
         Command(newId(), CommandType.SET_START, entryId, now, start = minOf(start, now))
+
+    /** Moves the end time of a stopped entry that starts at [start]; it can't be later than [now]. */
+    fun setStop(entryId: String, start: Long, stop: Long, now: Long) =
+        Command(newId(), CommandType.SET_START, entryId, now, start = start, stop = minOf(stop, now))
 }
 
 /**
@@ -58,6 +67,15 @@ object CommandFactory {
 object QueueLogic {
     fun enqueue(queue: List<Command>, cmd: Command): List<Command> {
         if (queue.any { it.id == cmd.id }) return queue
+        // A STOP made before an end edit that arrived first runs before it (but after the entry's
+        // START), so the edit wins.
+        if (cmd.type == CommandType.STOP) {
+            val edit = queue.indexOfFirst {
+                it.type == CommandType.SET_START && it.stop != null && it.entryId == cmd.entryId && it.at > cmd.at
+            }
+            val start = queue.indexOfFirst { it.type == CommandType.START && it.entryId == cmd.entryId }
+            if (edit >= 0 && edit > start) return queue.toMutableList().also { it.add(edit, cmd) }
+        }
         val local = cmd.entryId.startsWith(LOCAL_ID_PREFIX)
         val startIndex = queue.indexOfFirst { it.type == CommandType.START && it.entryId == cmd.entryId }
         if (local && startIndex >= 0) {
@@ -66,8 +84,13 @@ object QueueLogic {
                 CommandType.UPDATE -> return queue.toMutableList().also {
                     it[startIndex] = it[startIndex].copy(description = cmd.description, projectId = cmd.projectId)
                 }
-                // Not created in Toggl yet: create it with the new start time instead.
-                CommandType.SET_START -> if (cmd.start != null) return queue.toMutableList().also {
+                // Not created in Toggl yet: create it with the new start time instead. Not once it's
+                // stopped: the edit then runs after the STOP, which keeps the end (or sets the new one).
+                CommandType.SET_START -> if (
+                    cmd.start != null &&
+                    cmd.stop == null &&
+                    queue.none { it.type == CommandType.STOP && it.entryId == cmd.entryId }
+                ) return queue.toMutableList().also {
                     it[startIndex] = it[startIndex].copy(at = cmd.start)
                 }
                 else -> {}

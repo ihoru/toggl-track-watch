@@ -108,10 +108,16 @@ class SyncEngine(private val context: Context) {
                 store.removeEntry(id.toString())
             }
             CommandType.SET_START -> {
-                val start = cmd.start ?: return
-                val entry = store.snapshot.firstOrNull { it.id == id.toString() }
+                if (cmd.start == null) return
+                // Entries outside the synced range (a stale watch history) are fetched, so a stopped
+                // entry is never sent as running.
+                val entry = store.snapshot.firstOrNull { it.id == id.toString() } ?: api.entry(id)
+                // An end edit carries the watch's start only for older phones; keep the current one.
+                // A start edit stays before the current end.
+                val start = if (cmd.stop != null) entry.start else minOf(cmd.start, entry.stop ?: cmd.start)
+                val stop = cmd.stop?.let { maxOf(it, start) } ?: entry.stop
                 val fields = JSONObject().put("start", TogglApi.iso(start))
-                val stop = entry?.stop
+                if (stop != null) fields.put("stop", TogglApi.iso(stop))
                 // Running entries keep a negative duration; stopped ones get the new length.
                 fields.put("duration", if (stop == null) -1 else (stop - start) / 1000)
                 store.upsertEntry(api.update(wid, id, fields))

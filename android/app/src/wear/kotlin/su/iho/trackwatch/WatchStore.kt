@@ -92,6 +92,12 @@ class WatchStore private constructor(private val context: Context) {
     fun setStart(entryId: String, start: Long) =
         dispatch(listOf(CommandFactory.setStart(resolve(entryId), start, System.currentTimeMillis())))
 
+    fun setStop(entryId: String, stop: Long) {
+        val id = resolve(entryId)
+        val entry = view().entries.firstOrNull { it.id == id && !it.isRunning } ?: return
+        dispatch(listOf(CommandFactory.setStop(id, entry.start, stop, System.currentTimeMillis())))
+    }
+
     private fun dispatch(commands: List<Command>) {
         synchronized(this) { setPending(pending + commands) }
         val client = Wearable.getDataClient(context)

@@ -28,7 +28,8 @@ phone app. Start, stop and edit your time entries from your wrist.
   ±5 / ±15 min), Continue the last entry, and New timer (description by voice or keyboard, project
   from a list).
 - **Favorites.**
-- **History:** the last 7 days with daily totals. Continue, edit or delete entries.
+- **History:** the last 7 days with daily totals. Continue, edit or delete entries, and move their
+  start or end time.
 - **Recent:** up to 30 distinct timers of the last 30 days, most recent first.
 - **Frequent:** your most-tracked timers of the last 30 days that aren't favorites.
 - **Sync:** status, API requests left, Refresh, Open on phone and **Settings**.

@@ -66,6 +66,47 @@ class CommandsTest {
     }
 
     @Test
+    fun setStopMovesEndOfStoppedEntryWithinStartAndNow() {
+        val cmd = CommandFactory.setStop("1", 1_000, 1_500, 5_000)
+        assertEquals(CommandType.SET_START, cmd.type)
+        val moved = Reducer.apply(listOf(done), listOf(cmd)).single()
+        assertEquals(1_000L, moved.start)
+        assertEquals(1_500L, moved.stop)
+        assertTrue(moved.pending)
+        assertEquals(5_000L, CommandFactory.setStop("1", 1_000, 9_000, 5_000).stop)
+        // Never before the start, and a running entry keeps running.
+        assertEquals(1_000L, Reducer.apply(listOf(done), listOf(CommandFactory.setStop("1", 1_000, 500, 5_000))).single().stop)
+        assertNull(Reducer.apply(listOf(running), listOf(CommandFactory.setStop("2", 3_000, 4_000, 5_000))).single().stop)
+        assertEquals(cmd, Command.fromJson(cmd.toJson()))
+    }
+
+    @Test
+    fun timeEditsOnStoppedLocalEntryRunAfterTheStop() {
+        val start = CommandFactory.start(emptyList(), "x", null, 10_000).single()
+        val stop = CommandFactory.stop(start.entryId, 20_000)
+        val queue = listOf(start, stop)
+        val setStart = CommandFactory.setStart(start.entryId, 20_000, 30_000)
+        assertEquals(queue + setStart, QueueLogic.enqueue(queue, setStart))
+        val setStop = CommandFactory.setStop(start.entryId, 10_000, 15_000, 30_000)
+        assertEquals(queue + setStop, QueueLogic.enqueue(queue, setStop))
+    }
+
+    @Test
+    fun delayedStopRunsBeforeALaterEndEdit() {
+        val setStop = CommandFactory.setStop("2", 3_000, 4_000, 6_000)
+        val stop = CommandFactory.stop("2", 5_000)
+        assertEquals(listOf(stop, setStop), QueueLogic.enqueue(listOf(setStop), stop))
+        // Never before the entry's own START.
+        val created = CommandFactory.start(emptyList(), "x", null, 1_000).single()
+        val localEdit = CommandFactory.setStop(created.entryId, 1_000, 1_500, 6_000)
+        val localStop = CommandFactory.stop(created.entryId, 2_000)
+        assertEquals(listOf(localEdit, created, localStop), QueueLogic.enqueue(listOf(localEdit, created), localStop))
+        // A start-only edit doesn't reorder.
+        val setStart = CommandFactory.setStart("2", 2_000, 6_000)
+        assertEquals(listOf(setStart, stop), QueueLogic.enqueue(listOf(setStart), stop))
+    }
+
+    @Test
     fun queueIgnoresDuplicates() {
         val stop = CommandFactory.stop("1", 1_000)
         assertEquals(1, QueueLogic.enqueue(QueueLogic.enqueue(emptyList(), stop), stop).size)

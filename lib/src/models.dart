@@ -103,6 +103,7 @@ class ViewState {
     this.frequent = const [],
     this.recent = const [],
     this.pendingCount = 0,
+    this.idMap = const {},
     this.lastSync,
     this.error,
     this.rateLimitedUntil,
@@ -124,6 +125,9 @@ class ViewState {
   /// Distinct timers of the last 30 days, most recent first, as ranked once a day on the phone.
   final List<Favorite> recent;
   final int pendingCount;
+
+  /// Local ids of entries created offline mapped to their Toggl ids.
+  final Map<String, String> idMap;
   final DateTime? lastSync;
   final String? error;
   final DateTime? rateLimitedUntil;
@@ -150,6 +154,7 @@ class ViewState {
     frequent: frequent,
     recent: recent,
     pendingCount: pendingCount,
+    idMap: idMap,
     lastSync: lastSync,
     error: error,
     rateLimitedUntil: rateLimitedUntil,
@@ -233,6 +238,7 @@ class ViewState {
       frequent: list('frequent').map(Frequent.fromJson).toList(),
       recent: list('recent').map(Favorite.fromJson).toList(),
       pendingCount: (json['pendingCount'] as num?)?.toInt() ?? 0,
+      idMap: ((json['idMap'] as Map?) ?? const {}).cast<String, String>(),
       lastSync: time('lastSync'),
       error: json['error'] as String?,
       rateLimitedUntil: time('rateLimitedUntil'),

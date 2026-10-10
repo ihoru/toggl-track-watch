@@ -24,6 +24,9 @@ abstract class WatchBridge {
 
   /// Moves the entry's start time (never later than now).
   Future<void> setStart(String entryId, DateTime start);
+
+  /// Moves a stopped entry's end time (never earlier than its start or later than now).
+  Future<void> setStop(String entryId, DateTime stop);
   Future<void> refresh();
 
   /// Opens the phone app. Returns false when the phone can't be reached.
@@ -82,6 +85,10 @@ class ChannelWatchBridge implements WatchBridge {
   @override
   Future<void> setStart(String entryId, DateTime start) =>
       _methods.invokeMethod('setStart', {'entryId': entryId, 'start': start.millisecondsSinceEpoch});
+
+  @override
+  Future<void> setStop(String entryId, DateTime stop) =>
+      _methods.invokeMethod('setStop', {'entryId': entryId, 'stop': stop.millisecondsSinceEpoch});
 
   @override
   Future<void> refresh() => _methods.invokeMethod('refresh');
