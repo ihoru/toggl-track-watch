@@ -4,6 +4,10 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 versions match `version:` in `pubspec.yaml`. The release workflow publishes the section of the
 tagged version as the GitHub Release notes.
 
+## [1.10.2] - 2026-10-10
+### Changed
+- Build: Android Gradle Plugin 9.4.1 and Gradle 9.6.0. No changes in the app.
+
 ## [1.10.1] - 2026-10-10
 ### Changed
 - Watch: the running-timer indicator on the watch face shows only the timer's description (the
