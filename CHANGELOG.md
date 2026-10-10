@@ -4,6 +4,11 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 versions match `version:` in `pubspec.yaml`. The release workflow publishes the section of the
 tagged version as the GitHub Release notes.
 
+## [1.10.0] - 2026-10-10
+### Changed
+- Watch: the Now page shows **New timer** first, followed by the three latest distinct timers
+  (instead of only the last one) to start again with one tap, also while a timer is running.
+
 ## [1.9.0] - 2026-10-10
 ### Added
 - Watch: an entry opened from History (or the Now page) has **Edit start time** above Edit, and

@@ -25,8 +25,8 @@ phone app. Start, stop and edit your time entries from your wrist.
 
 **Watch:** six pages you swipe between.
 - **Now:** the running timer with Stop and Cancel, **Edit start time** (turn the crown or tap
-  ±5 / ±15 min), Continue the last entry, and New timer (description by voice or keyboard, project
-  from a list).
+  ±5 / ±15 min), New timer (description by voice or keyboard, project from a list), then the three
+  latest distinct timers to continue with one tap.
 - **Favorites.**
 - **History:** the last 7 days with daily totals. Continue, edit or delete entries, and move their
   start or end time.

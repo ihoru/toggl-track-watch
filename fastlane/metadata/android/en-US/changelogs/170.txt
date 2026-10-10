@@ -1,0 +1,1 @@
+Watch: the Now page shows New timer first, then the three latest distinct timers to start again with one tap.
