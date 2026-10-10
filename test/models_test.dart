@@ -36,6 +36,7 @@ void main() {
     expect(state.favorites.single, const Favorite(description: 'F'));
     expect(state.entries.last.duration(), const Duration(milliseconds: 500));
     expect(state.phoneReachable, isFalse);
+    expect(state.idMap, {'local-0': '1'});
     expect(state.lastSync, DateTime.fromMillisecondsSinceEpoch(42));
   });
 

@@ -92,6 +92,11 @@ data class Command(
     val projectId: Long? = null,
     /** New start time (epoch ms) for [CommandType.SET_START]. */
     val start: Long? = null,
+    /**
+     * New end time (epoch ms) of a stopped entry for [CommandType.SET_START]. End edits ride on
+     * SET_START (with the unchanged start) so that a phone without this field just ignores them.
+     */
+    val stop: Long? = null,
 ) {
     fun toJson(): JSONObject = JSONObject()
         .put("id", id)
@@ -101,6 +106,7 @@ data class Command(
         .put("description", description ?: JSONObject.NULL)
         .put("projectId", projectId ?: JSONObject.NULL)
         .put("start", start ?: JSONObject.NULL)
+        .put("stop", stop ?: JSONObject.NULL)
 
     companion object {
         fun fromJson(o: JSONObject) = Command(
@@ -111,6 +117,7 @@ data class Command(
             description = if (o.isNull("description")) null else o.optString("description"),
             projectId = o.optLongOrNull("projectId"),
             start = o.optLongOrNull("start"),
+            stop = o.optLongOrNull("stop"),
         )
     }
 }

@@ -4,6 +4,12 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 versions match `version:` in `pubspec.yaml`. The release workflow publishes the section of the
 tagged version as the GitHub Release notes.
 
+## [1.9.0] - 2026-10-10
+### Added
+- Watch: an entry opened from History (or the Now page) has **Edit start time** above Edit, and
+  stopped entries also have **Edit end time**. Turn the crown or tap ±5 / ±15 min; the start stays
+  before the end and the end stays between the start and now.
+
 ## [1.7.0] - 2026-10-10
 ### Changed
 - Watch: **History** is now the third page, right after Favorites. The order is Now, Favorites,
@@ -88,6 +94,9 @@ tagged version as the GitHub Release notes.
 - First version: phone settings app and Wear OS app for Toggl Track with offline queue, tile,
   complication and Ongoing Activity.
 
+[1.9.0]: https://github.com/ihoru/toggl-track-watch/releases/tag/v1.9.0
+[1.7.0]: https://github.com/ihoru/toggl-track-watch/releases/tag/v1.7.0
+[1.6.1]: https://github.com/ihoru/toggl-track-watch/releases/tag/v1.6.1
 [1.6.0]: https://github.com/ihoru/toggl-track-watch/releases/tag/v1.6.0
 [1.5.0]: https://github.com/ihoru/toggl-track-watch/releases/tag/v1.5.0
 [1.4.2]: https://github.com/ihoru/toggl-track-watch/releases/tag/v1.4.2
