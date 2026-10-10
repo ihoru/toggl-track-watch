@@ -4,6 +4,12 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 versions match `version:` in `pubspec.yaml`. The release workflow publishes the section of the
 tagged version as the GitHub Release notes.
 
+## [1.10.1] - 2026-10-10
+### Changed
+- Watch: the running-timer indicator on the watch face shows only the timer's description (the
+  start time rarely fit). Without a description it shows the project name, and with neither only
+  the icon.
+
 ## [1.10.0] - 2026-10-10
 ### Changed
 - Watch: the Now page shows **New timer** first, followed by the three latest distinct timers

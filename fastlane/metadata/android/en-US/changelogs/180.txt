@@ -1,0 +1,1 @@
+Watch: the running-timer indicator shows only the description (or the project name), without the start time.
