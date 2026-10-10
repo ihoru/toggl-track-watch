@@ -139,7 +139,7 @@ class NowPage extends StatelessWidget {
     final model = WatchScope.of(context);
     final state = model.state;
     final running = state.running;
-    final last = state.entries.where((e) => !e.isRunning).firstOrNull;
+    final recent = state.recentTimers(limit: 3);
     return RoundList(
       storageKey: 'now',
       active: active,
@@ -161,26 +161,25 @@ class NowPage extends StatelessWidget {
             },
             onTap: () => _push(context, EntryScreen(entry: running)),
           )
-        else ...[
+        else
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: Text('No timer running', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleSmall),
           ),
-          if (last != null)
-            WearChip(
-              label: last.description.isEmpty ? '(no description)' : last.description,
-              secondary: 'Continue · ${state.project(last.projectId)?.name ?? 'No project'}',
-              icon: Icons.play_arrow,
-              color: colorFromHex(state.project(last.projectId)?.color),
-              onTap: () => startTimer(context, last.description, last.projectId),
-            ),
-        ],
         WearChip(
           label: 'New timer',
           icon: Icons.add,
           color: Theme.of(context).colorScheme.primary,
           onTap: () => _push(context, const EditScreen.create()),
         ),
+        for (final r in recent)
+          WearChip(
+            label: r.description.isEmpty ? (state.project(r.projectId)?.name ?? '(no description)') : r.description,
+            secondary: 'Continue · ${state.project(r.projectId)?.name ?? 'No project'}',
+            icon: Icons.play_arrow,
+            color: colorFromHex(state.project(r.projectId)?.color),
+            onTap: () => startTimer(context, r.description, r.projectId),
+          ),
       ],
     );
   }

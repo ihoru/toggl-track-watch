@@ -107,6 +107,33 @@ void main() {
     expect(find.text('No timer running'), findsOneWidget);
   });
 
+  testWidgets('now page: New timer first, then the three latest distinct timers', (tester) async {
+    final bridge = FakeWatchBridge(sampleState(running: false));
+    await pumpWatch(tester, bridge);
+
+    double top(String text) => tester.getTopLeft(find.text(text)).dy;
+    final labels = ['New timer', 'Standup', 'Coding', 'Review'];
+    for (final l in labels) {
+      await tester.scrollUntilVisible(find.text(l), 50, scrollable: find.byType(Scrollable).last);
+    }
+    expect(find.text('Deep work'), findsNothing);
+    await tester.scrollUntilVisible(find.text('New timer'), -50, scrollable: find.byType(Scrollable).last);
+    expect(top('New timer'), lessThan(top('Standup')));
+    expect(top('Standup'), lessThan(top('Coding')));
+
+    await tapText(tester, 'Review');
+    expect(bridge.calls.last, 'start:Review:2');
+  });
+
+  testWidgets('now page with a running timer leaves it out of the recent timers', (tester) async {
+    final bridge = FakeWatchBridge(sampleState());
+    await pumpWatch(tester, bridge);
+    // The whole list is built: Coding appears only on the running card.
+    for (final l in ['Coding', 'New timer', 'Standup', 'Review', 'Deep work']) {
+      expect(find.text(l, skipOffstage: false), findsOneWidget);
+    }
+  });
+
   testWidgets('remembers the last page across launches', (tester) async {
     final bridge = FakeWatchBridge(sampleState())..uiState = {'page': 4};
     await pumpWatch(tester, bridge);
@@ -156,6 +183,7 @@ void main() {
     await tapText(tester, 'Start');
     expect(bridge.calls.last, 'start:Planning:2');
     expect(find.text('Add description'), findsNothing);
+    await tester.scrollUntilVisible(find.text('No timer running'), -50, scrollable: find.byType(Scrollable).last);
     expect(find.text('No timer running'), findsOneWidget);
   });
 
