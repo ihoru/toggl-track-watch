@@ -16,8 +16,6 @@ import androidx.core.content.ContextCompat
 import androidx.wear.ongoing.OngoingActivity
 import androidx.wear.ongoing.Status
 import su.iho.trackwatch.shared.ViewState
-import java.text.DateFormat
-import java.util.Date
 
 /** Shows an Ongoing Activity (watch-face icon + notification with Stop) while a timer runs. */
 object OngoingTimer {
@@ -80,13 +78,13 @@ object OngoingTimer {
             .addAction(R.drawable.ic_stop, "Stop", stop)
             .addExtras(Bundle().apply { putString(EXTRA_KEY, key) })
 
-        // A static status: a running stopwatch here is redrawn every second wherever the system
-        // shows the ongoing activity, which flickers and keeps the screen busy.
-        val since = DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(running.start))
+        // Just the description: a time doesn't fit in the watch-face strip. Without one, the project
+        // name; without that either, an empty status leaves only the icon. (A ticking stopwatch here
+        // also flickered.)
+        val label = running.description.ifBlank { project.orEmpty() }
         val status = Status.Builder()
-            .addTemplate("#title# · #since#")
-            .addPart("title", Status.TextPart(title))
-            .addPart("since", Status.TextPart("since $since"))
+            .addTemplate("#label#")
+            .addPart("label", Status.TextPart(label))
             .build()
         OngoingActivity.Builder(context, NOTIFICATION_ID, builder)
             .setStaticIcon(R.drawable.ic_timer)
