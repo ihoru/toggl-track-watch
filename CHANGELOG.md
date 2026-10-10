@@ -4,6 +4,11 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 versions match `version:` in `pubspec.yaml`. The release workflow publishes the section of the
 tagged version as the GitHub Release notes.
 
+## [1.7.0] - 2026-10-10
+### Changed
+- Watch: **History** is now the third page, right after Favorites. The order is Now, Favorites,
+  History, Recent, Frequent, Sync.
+
 ## [1.6.1] - 2026-10-05
 ### Fixed
 - The watch APK installs on watches with a 32-bit userspace (such as Galaxy Watch 4-6 and Pixel

@@ -13,9 +13,9 @@ phone app. Start, stop and edit your time entries from your wrist.
 <p>
   <img src="docs/screenshots/watch-now.png" width="200" alt="Running timer">
   <img src="docs/screenshots/watch-favorites.png" width="200" alt="Favorites">
+  <img src="docs/screenshots/watch-history.jpg" width="200" alt="History">
   <img src="docs/screenshots/watch-recent.png" width="200" alt="Recent timers">
   <img src="docs/screenshots/watch-frequent.png" width="200" alt="Frequent timers">
-  <img src="docs/screenshots/watch-history.jpg" width="200" alt="History">
   <img src="docs/screenshots/watch-tile.png" width="200" alt="Tile">
   <img src="docs/screenshots/watch-sync.png" width="200" alt="Sync page">
 </p>
@@ -28,9 +28,9 @@ phone app. Start, stop and edit your time entries from your wrist.
   ±5 / ±15 min), Continue the last entry, and New timer (description by voice or keyboard, project
   from a list).
 - **Favorites.**
+- **History:** the last 7 days with daily totals. Continue, edit or delete entries.
 - **Recent:** up to 30 distinct timers of the last 30 days, most recent first.
 - **Frequent:** your most-tracked timers of the last 30 days that aren't favorites.
-- **History:** the last 7 days with daily totals. Continue, edit or delete entries.
 - **Sync:** status, API requests left, Refresh, Open on phone and **Settings**.
 - Plus a **tile** (running timer with Open, up to six timers in two columns), a **complication** with
   the elapsed time, the running timer on your watch face, and a dimmed ambient screen.
