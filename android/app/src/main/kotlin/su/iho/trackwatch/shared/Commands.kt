@@ -67,6 +67,11 @@ object CommandFactory {
 object QueueLogic {
     fun enqueue(queue: List<Command>, cmd: Command): List<Command> {
         if (queue.any { it.id == cmd.id }) return queue
+        // Commands for an entry can arrive before its START (separate DataItems): create it first.
+        if (cmd.type == CommandType.START) {
+            val first = queue.indexOfFirst { it.entryId == cmd.entryId }
+            if (first >= 0) return queue.toMutableList().also { it.add(first, cmd) }
+        }
         // A STOP made before an end edit that arrived first runs before it (but after the entry's
         // START), so the edit wins.
         if (cmd.type == CommandType.STOP) {

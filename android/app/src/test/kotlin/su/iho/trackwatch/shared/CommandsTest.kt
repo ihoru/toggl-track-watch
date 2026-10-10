@@ -100,7 +100,10 @@ class CommandsTest {
         val created = CommandFactory.start(emptyList(), "x", null, 1_000).single()
         val localEdit = CommandFactory.setStop(created.entryId, 1_000, 1_500, 6_000)
         val localStop = CommandFactory.stop(created.entryId, 2_000)
-        assertEquals(listOf(localEdit, created, localStop), QueueLogic.enqueue(listOf(localEdit, created), localStop))
+        var queue = QueueLogic.enqueue(listOf(localEdit), created)
+        assertEquals(listOf(created, localEdit), queue)
+        queue = QueueLogic.enqueue(queue, localStop)
+        assertEquals(listOf(created, localStop, localEdit), queue)
         // A start-only edit doesn't reorder.
         val setStart = CommandFactory.setStart("2", 2_000, 6_000)
         assertEquals(listOf(setStart, stop), QueueLogic.enqueue(listOf(setStart), stop))
