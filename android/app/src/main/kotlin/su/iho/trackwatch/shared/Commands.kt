@@ -130,4 +130,11 @@ object Frequency {
             .map { Favorite(it.description.trim(), it.projectId) }
             .distinct()
             .take(limit)
+
+    /**
+     * What the watch gets of the full [recent] list: [limit] plus one per favorite, so it still has
+     * [limit] timers after leaving the favorites out of its Recent page.
+     */
+    fun recentForWatch(recent: List<Favorite>, favorites: List<Favorite>, limit: Int = 30): List<Favorite> =
+        recent.take(limit + favorites.size)
 }

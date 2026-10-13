@@ -159,6 +159,13 @@ class CommandsTest {
     }
 
     @Test
+    fun recentForWatchKeepsRoomForFavorites() {
+        val recent = listOf(Favorite("A", 1), Favorite("B", 1), Favorite("C", null), Favorite("D", 2))
+        assertEquals(recent.take(2), Frequency.recentForWatch(recent, emptyList(), limit = 2))
+        assertEquals(recent.take(3), Frequency.recentForWatch(recent, listOf(Favorite("A", 1)), limit = 2))
+    }
+
+    @Test
     fun viewStateRoundTrip() {
         val state = ViewState(
             configured = true,

@@ -298,7 +298,7 @@ class RecentPage extends StatelessWidget {
         if (recent.isEmpty)
           const Padding(
             padding: EdgeInsets.all(12),
-            child: Text('Nothing tracked in the last 30 days yet.', textAlign: TextAlign.center),
+            child: Text('No timers besides favorites in the last 30 days.', textAlign: TextAlign.center),
           ),
         for (final r in recent)
           _TimerChip(
