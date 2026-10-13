@@ -32,7 +32,8 @@ PLAY_NOTES = ROOT / "fastlane/metadata/android/en-US/changelogs"
 RELEASES_URL = "https://github.com/ihoru/toggl-track-watch/releases"
 # Keep a Changelog order.
 SECTIONS = ["Added", "Changed", "Deprecated", "Removed", "Fixed", "Security"]
-PLAY_LIMIT = 500
+# Play allows 500 characters; the release workflow counts the trailing newline too.
+PLAY_LIMIT = 499
 VERSION = re.compile(r"^version: (\d+)\.(\d+)\.(\d+)\+(\d+)$", re.MULTILINE)
 
 

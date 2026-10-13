@@ -26,6 +26,8 @@ jobs:
       build: ${{ steps.check.outputs.build }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
 
       - name: Check the version to release
         id: check
@@ -45,7 +47,13 @@ jobs:
             # The commit the tag points to (dereferenced for annotated tags), empty when untagged.
             TAGGED=$(git ls-remote --tags origin "refs/tags/v$PUBSPEC" "refs/tags/v$PUBSPEC^{}" \
               | sort -k2 | tail -1 | cut -f1)
-            if [ -z "$TAGGED" ]; then
+            PARENT=$(git show HEAD^:pubspec.yaml 2>/dev/null | grep '^version:' | awk '{print $2}')
+            if [ -z "$TAGGED" ] && [ "$PARENT" = "$FULL" ]; then
+              # Only the commit that changed the version releases it (Prepare release's commit), so
+              # a later merge never publishes its code under a version whose release failed.
+              echo "::warning::v$PUBSPEC is not tagged, but this commit doesn't change the version; re-run the failed Release run of the commit that set it."
+              echo "release=false" >> "$GITHUB_OUTPUT"
+            elif [ -z "$TAGGED" ]; then
               echo "v$PUBSPEC is not tagged yet; releasing it."
               echo "release=true" >> "$GITHUB_OUTPUT"
             elif [ "$TAGGED" = "$GITHUB_SHA" ]; then

@@ -51,7 +51,7 @@ class PlayNotesTest(unittest.TestCase):
     def test_cut_to_play_limit(self) -> None:
         sections = {"Changed": [f"- {'a' * 200}", f"- {'b' * 200}", f"- {'c' * 200}"]}
         notes = release.play_notes("1.2.3", sections)
-        self.assertLessEqual(len(notes.rstrip("\n")), release.PLAY_LIMIT)
+        self.assertLessEqual(len(notes), 500)
         self.assertIn("b" * 200, notes)
         self.assertNotIn("c" * 200, notes)
         self.assertTrue(notes.endswith("/releases/tag/v1.2.3\n"))
