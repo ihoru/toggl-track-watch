@@ -39,7 +39,8 @@ phone app. Start, stop and edit your time entries from your wrist.
 **Phone:** paste your Toggl API token once and manage favorites.
 - Swipe right on a favorite to start it (through the Toggl app if installed), swipe left to delete it.
 - Compact list view, sync status and Toggl API quota.
-- Token and favorites are backed up with Google Block Store and restored after a reinstall.
+- Token, favorites and the watch settings are backed up with Google Block Store and restored after
+  a reinstall.
 
 **Offline:** nothing is lost. The watch queues actions until the phone is reachable, and the phone
 queues them until Toggl accepts them (no network, API quota reached, server errors). Offline starts

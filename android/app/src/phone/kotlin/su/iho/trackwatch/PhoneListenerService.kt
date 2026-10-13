@@ -6,13 +6,13 @@ import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.WearableListenerService
 import su.iho.trackwatch.shared.Paths
 
-/** Receives commands and refresh requests from the watch, even when the app is closed. */
+/** Receives commands, settings and refresh requests from the watch, even when the app is closed. */
 class PhoneListenerService : WearableListenerService() {
     override fun onDataChanged(events: DataEventBuffer) {
         val items = events.filter { it.type == DataEvent.TYPE_CHANGED }.map { it.dataItem.freeze() }
         if (items.isEmpty()) return
         SyncEngine.ingest(this, items)
-        Sync.now(this)
+        if (items.any { it.uri.path?.startsWith(Paths.COMMAND_PREFIX) == true }) Sync.now(this)
     }
 
     override fun onMessageReceived(event: MessageEvent) {

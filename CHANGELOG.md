@@ -4,6 +4,12 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 versions match `version:` in `pubspec.yaml`. The release workflow publishes the section of the
 tagged version as the GitHub Release notes.
 
+## [1.12.0] - 2026-10-13
+### Added
+- Watch: settings (running-timer notification, vibration, crown step, compact favorites) come
+  back after reinstalling the watch app. The phone keeps a copy, included in its Block Store
+  backup, and the watch restores it on first launch.
+
 ## [1.11.0] - 2026-10-13
 ### Added
 - Watch: **Compact favorites** in Settings (off by default) shows the Favorites page as small

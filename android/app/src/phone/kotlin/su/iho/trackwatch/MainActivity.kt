@@ -165,6 +165,7 @@ class MainActivity : FlutterActivity() {
         val backup = runCatching { CloudBackup.load(this) }.getOrNull() ?: return null
         if (store.favorites.isEmpty() && backup.favorites.isNotEmpty()) store.setFavorites(backup.favorites)
         if (!uiPrefs.contains("compact")) uiPrefs.edit().putBoolean("compact", backup.compact).apply()
+        if (store.watchSettings == null) backup.watchSettings?.let(store::setWatchSettings)
         val token = backup.token
         if (store.token == null && token != null) {
             try {

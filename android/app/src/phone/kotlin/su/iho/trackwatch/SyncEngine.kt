@@ -11,6 +11,7 @@ import su.iho.trackwatch.shared.CommandType
 import su.iho.trackwatch.shared.Frequency
 import su.iho.trackwatch.shared.LOCAL_ID_PREFIX
 import su.iho.trackwatch.shared.Paths
+import su.iho.trackwatch.shared.toMap
 import kotlinx.coroutines.tasks.await
 import org.json.JSONObject
 import java.io.IOException
@@ -153,14 +154,15 @@ class SyncEngine(private val context: Context) {
         store.setRefreshed(entries, projects)
     }
 
-    /** Picks up commands whose DATA_CHANGED event was missed (e.g. app was updated). */
+    /** Picks up commands and watch settings whose DATA_CHANGED event was missed (e.g. app was updated). */
     private suspend fun ingestPendingDataItems() {
         try {
             val client = Wearable.getDataClient(context)
-            val uri = Uri.Builder().scheme(PutDataRequest.WEAR_URI_SCHEME).path(Paths.COMMAND_PREFIX).build()
-            val buffer = client.getDataItems(uri, com.google.android.gms.wearable.DataClient.FILTER_PREFIX).await()
-            val items = buffer.map { it.freeze() }
-            buffer.release()
+            val items = listOf(Paths.COMMAND_PREFIX, Paths.WATCH_SETTINGS).flatMap { path ->
+                val uri = Uri.Builder().scheme(PutDataRequest.WEAR_URI_SCHEME).path(path).build()
+                val buffer = client.getDataItems(uri, com.google.android.gms.wearable.DataClient.FILTER_PREFIX).await()
+                buffer.map { it.freeze() }.also { buffer.release() }
+            }
             ingest(context, items)
         } catch (e: Exception) {
             // Wearable API unavailable (no watch paired); nothing to ingest.
@@ -175,8 +177,19 @@ class SyncEngine(private val context: Context) {
         private const val PROJECTS_TTL = 60 * 60_000L
         private val RETRYABLE = setOf(401, 402, 403, 408, 429)
 
-        /** Moves command DataItems into the queue and deletes them from the Data Layer. */
+        /**
+         * Moves command DataItems into the queue and deletes them from the Data Layer, and saves the
+         * watch settings (that DataItem stays: the watch owns it).
+         */
         fun ingest(context: Context, items: List<DataItem>) {
+            items.lastOrNull { it.uri.path == Paths.WATCH_SETTINGS }?.let { item ->
+                val settings = runCatching {
+                    JSONObject(DataMapItem.fromDataItem(item).dataMap.getString(Paths.KEY_PAYLOAD)!!).toMap()
+                }.getOrNull()
+                val store = PhoneStore.get(context)
+                // Not before sign-in: right after a reinstall that would overwrite the backup that has the token.
+                if (settings != null && store.setWatchSettings(settings) && store.token != null) CloudBackup.save(context)
+            }
             val commandItems = items.filter { it.uri.path?.startsWith(Paths.COMMAND_PREFIX) == true }
             if (commandItems.isEmpty()) return
             val commands = commandItems.mapNotNull { item ->

@@ -16,7 +16,7 @@ Ihor Polyakov. This policy covers the Track Watch phone app and Wear OS app.
 ## Where it goes
 - The phone app talks **only to Toggl's API** (`api.track.toggl.com`) with your token, to read and
   change your time entries. Toggl's own [privacy policy](https://toggl.com/legal/privacy/) applies there.
-- The phone and watch exchange time entries, projects and favorites over the Wear OS connection
+- The phone and watch exchange time entries, projects, favorites and watch settings over the Wear OS connection
   (Google Play services Wearable Data Layer), directly between your devices.
 - **Backup:** the token, favorites and settings (not your time entries) are saved with Google Play services **Block Store**
   so they survive reinstalling. With a screen lock set, the backup is end-to-end encrypted in your

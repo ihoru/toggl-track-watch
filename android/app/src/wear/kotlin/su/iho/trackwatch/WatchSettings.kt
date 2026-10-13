@@ -1,8 +1,15 @@
 package su.iho.trackwatch
 
 import android.content.Context
+import com.google.android.gms.wearable.PutDataMapRequest
+import com.google.android.gms.wearable.Wearable
+import org.json.JSONObject
+import su.iho.trackwatch.shared.Paths
 
-/** Watch-side settings, edited on the watch's Settings screen. */
+/**
+ * Watch-side settings, edited on the watch's Settings screen. The phone keeps a copy (and backs it
+ * up with its own settings), so they come back after reinstalling the watch app.
+ */
 object WatchSettings {
     /** Show the running-timer notification and Ongoing Activity icon. */
     const val ONGOING = "ongoing"
@@ -32,13 +39,44 @@ object WatchSettings {
     }
 
     fun set(context: Context, key: String, value: Any) {
+        write(context, mapOf(key to value))
+        sendToPhone(context)
+    }
+
+    private fun write(context: Context, values: Map<String, Any>) {
         val edit = prefs(context).edit()
-        when (value) {
-            is Boolean -> edit.putBoolean(key, value)
-            is Number -> edit.putInt(key, value.toInt())
-            else -> return
+        for ((key, value) in values) {
+            val default = defaults[key]
+            when {
+                default is Boolean && value is Boolean -> edit.putBoolean(key, value)
+                default is Int && value is Number -> edit.putInt(key, value.toInt())
+            }
         }
         edit.apply()
+    }
+
+    /** Whether no setting was ever saved here, i.e. the app is freshly installed. */
+    private fun isUnset(context: Context) = prefs(context).all.keys.none { it in defaults }
+
+    /** Sends the settings to the phone. The Data Layer skips the update when nothing changed. */
+    private fun sendToPhone(context: Context) {
+        val request = PutDataMapRequest.create(Paths.WATCH_SETTINGS).apply {
+            dataMap.putString(Paths.KEY_PAYLOAD, JSONObject(all(context)).toString())
+        }.asPutDataRequest().setUrgent()
+        Wearable.getDataClient(context).putDataItem(request)
+    }
+
+    /**
+     * Called with the phone's copy of the settings: restores it when nothing was set here yet (a
+     * fresh install), otherwise sends the watch's settings when the copy is missing or differs
+     * (they were set before this existed, or the phone app was reinstalled).
+     */
+    fun reconcile(context: Context, phoneCopy: Map<String, Any>?) {
+        if (isUnset(context)) {
+            if (phoneCopy != null) write(context, phoneCopy)
+        } else if (phoneCopy != all(context)) {
+            sendToPhone(context)
+        }
     }
 
     fun showOngoing(context: Context) = prefs(context).getBoolean(ONGOING, true)

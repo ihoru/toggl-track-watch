@@ -1,0 +1,1 @@
+Watch: settings now come back after reinstalling the watch app (the phone keeps a copy).

@@ -52,6 +52,7 @@ class WatchStore private constructor(private val context: Context) {
     fun onPhoneState(state: ViewState) {
         phoneState = state
         stateFile.writeText(state.toJson().toString())
+        WatchSettings.reconcile(context, state.watchSettings)
         val acked = state.acks.toSet()
         if (pending.any { it.id in acked }) setPending(pending.filterNot { it.id in acked })
         changed()

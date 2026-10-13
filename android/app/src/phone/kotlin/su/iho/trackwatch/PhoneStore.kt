@@ -17,6 +17,7 @@ import su.iho.trackwatch.shared.TimeEntry
 import su.iho.trackwatch.shared.ViewState
 import su.iho.trackwatch.shared.objects
 import su.iho.trackwatch.shared.strings
+import su.iho.trackwatch.shared.toMap
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.CopyOnWriteArrayList
@@ -79,6 +80,19 @@ class PhoneStore private constructor(private val context: Context) {
     @get:Synchronized
     val recent: List<Favorite> get() = readArray(K_RECENT).map(Favorite::fromJson)
 
+    /** The watch's settings, kept here so the watch can restore them after a reinstall. */
+    @get:Synchronized
+    val watchSettings: Map<String, Any>? get() = prefs.getString(K_WATCH_SETTINGS, null)?.let { JSONObject(it).toMap() }
+
+    /** Saves the watch's settings and publishes them back to it. Returns whether they changed. */
+    @Synchronized
+    fun setWatchSettings(settings: Map<String, Any>): Boolean {
+        if (settings == watchSettings) return false
+        prefs.edit().putString(K_WATCH_SETTINGS, JSONObject(settings).toString()).apply()
+        changed()
+        return true
+    }
+
     /** Whether [recent] was ever calculated (it was added after [frequent]). */
     val hasRecent get() = prefs.contains(K_RECENT)
 
@@ -112,7 +126,8 @@ class PhoneStore private constructor(private val context: Context) {
 
     private fun clearData() {
         val favorites = prefs.getString(K_FAVORITES, null)
-        prefs.edit().clear().putString(K_FAVORITES, favorites).apply()
+        val watchSettings = prefs.getString(K_WATCH_SETTINGS, null)
+        prefs.edit().clear().putString(K_FAVORITES, favorites).putString(K_WATCH_SETTINGS, watchSettings).apply()
     }
 
     @Synchronized
@@ -223,6 +238,7 @@ class PhoneStore private constructor(private val context: Context) {
             rateLimitedUntil = rateLimitedUntil.takeIf { it > System.currentTimeMillis() },
             quotaRemaining = prefs.getInt(K_QUOTA_REMAINING, -1).takeIf { it >= 0 },
             quotaResetsAt = prefs.getLong(K_QUOTA_RESETS_AT, 0).takeIf { it > 0 },
+            watchSettings = watchSettings,
         )
     }
 
@@ -286,6 +302,7 @@ class PhoneStore private constructor(private val context: Context) {
         private const val K_QUOTA_REMAINING = "quotaRemaining"
         private const val K_QUOTA_RESETS_AT = "quotaResetsAt"
         private const val K_PUBLISHED = "published"
+        private const val K_WATCH_SETTINGS = "watchSettings"
         private const val WATCH_ACTIVE_MILLIS = 5 * 60_000L
         private const val MAX_ACKS = 200
         private const val MAX_IDS = 100

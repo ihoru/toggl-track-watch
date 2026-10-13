@@ -173,6 +173,7 @@ class CommandsTest {
             error = "boom",
             quotaRemaining = 27,
             quotaResetsAt = 99,
+            watchSettings = mapOf("haptics" to false, "crownStep" to 5),
         )
         assertEquals(state, ViewState.fromBytes(state.toBytes()))
     }
@@ -184,5 +185,6 @@ class CommandsTest {
         assertEquals(state.watchContentHash(), synced.watchContentHash())
         assertTrue(state.watchContentHash() != state.copy(entries = listOf(done)).watchContentHash())
         assertTrue(state.watchContentHash() != state.copy(error = "boom").watchContentHash())
+        assertTrue(state.watchContentHash() != state.copy(watchSettings = mapOf("haptics" to false)).watchContentHash())
     }
 }
