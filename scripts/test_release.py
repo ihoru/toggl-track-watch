@@ -62,6 +62,12 @@ class PlayNotesTest(unittest.TestCase):
         self.assertTrue(notes.startswith("a" * 400))
         self.assertIn("…\nMore: ", notes)
 
+    def test_cut_long_later_entry(self) -> None:
+        notes = release.play_notes("1.2.3", {"Changed": ["- Short.", f"- {'a' * 600}"]})
+        self.assertLessEqual(len(notes), 500)
+        self.assertTrue(notes.startswith("Short.\n" + "a" * 300))
+        self.assertIn("…\nMore: ", notes)
+
 
 class PrepareTest(unittest.TestCase):
     def setUp(self) -> None:

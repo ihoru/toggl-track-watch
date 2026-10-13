@@ -148,9 +148,9 @@ def play_notes(version: str, sections: dict[str, list[str]]) -> str:
     kept: list[str] = []
     for entry in entries:
         if len("\n".join([*kept, entry, more])) > PLAY_LIMIT:
-            if not kept:
-                # Keep the start of an entry that is too long on its own.
-                room = PLAY_LIMIT - len(more) - 2
+            # Fill the remaining room with the start of the entry that doesn't fit.
+            room = PLAY_LIMIT - len("\n".join([*kept, more])) - 2
+            if room >= 40 or not kept:
                 kept.append(entry[:room].rstrip() + "…")
             break
         kept.append(entry)
