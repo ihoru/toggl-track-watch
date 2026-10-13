@@ -24,7 +24,7 @@ class ParseTest(unittest.TestCase):
         self.assertEqual(sections, {"Added": ["- One\n  more."], "Fixed": ["- Two"]})
 
     def test_errors(self) -> None:
-        for text in ["- No heading\n", "### Misc\n- x\n", "### Added\nplain text\n", "### Added\n", ""]:
+        for text in ["- No heading\n", "### Misc\n- x\n", "### Added\nplain text\n", "### Added\n", "### Added\n- \n", ""]:
             with self.subTest(text=text), self.assertRaises(release.FragmentError):
                 release.parse("a.md", text)
 
@@ -55,6 +55,12 @@ class PlayNotesTest(unittest.TestCase):
         self.assertIn("b" * 200, notes)
         self.assertNotIn("c" * 200, notes)
         self.assertTrue(notes.endswith("/releases/tag/v1.2.3\n"))
+
+    def test_cut_long_first_entry(self) -> None:
+        notes = release.play_notes("1.2.3", {"Changed": [f"- {'a' * 600}"]})
+        self.assertLessEqual(len(notes), 500)
+        self.assertTrue(notes.startswith("a" * 400))
+        self.assertIn("…\nMore: ", notes)
 
 
 class PrepareTest(unittest.TestCase):

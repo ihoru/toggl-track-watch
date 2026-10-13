@@ -56,6 +56,8 @@ def parse(name: str, text: str) -> dict[str, list[str]]:
         elif current is None:
             raise FragmentError(f"{name}: text before the first '### Section' heading")
         elif line.startswith("- "):
+            if not line[2:].strip():
+                raise FragmentError(f"{name}: empty '- ' entry")
             current.append(line)
         elif line.startswith("  ") and current:
             current[-1] += "\n" + line
@@ -146,6 +148,10 @@ def play_notes(version: str, sections: dict[str, list[str]]) -> str:
     kept: list[str] = []
     for entry in entries:
         if len("\n".join([*kept, entry, more])) > PLAY_LIMIT:
+            if not kept:
+                # Keep the start of an entry that is too long on its own.
+                room = PLAY_LIMIT - len(more) - 2
+                kept.append(entry[:room].rstrip() + "…")
             break
         kept.append(entry)
     return "\n".join([*kept, more]) + "\n"
