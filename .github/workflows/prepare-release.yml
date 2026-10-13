@@ -1,0 +1,81 @@
+name: Prepare release
+
+# Actions → Prepare release → Run workflow (on main). Bumps the version in pubspec.yaml, moves the
+# changelog.d/ entries into a new CHANGELOG.md section, writes Play's "What's new" and commits that
+# to main; the push starts release.yml, which builds and publishes the version. See
+# docs/PUBLISHING.md and changelog.d/README.md.
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump (auto: minor with an Added entry, otherwise patch)'
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+      note:
+        description: 'Changed entry to use when changelog.d/ is empty (e.g. "Updated Android libraries. No changes in the app.")'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check the deploy key
+        env:
+          RELEASE_DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
+        run: |
+          if [ -z "$RELEASE_DEPLOY_KEY" ]; then
+            echo "::error::Set the RELEASE_DEPLOY_KEY secret (see docs/PUBLISHING.md)"; exit 1
+          fi
+
+      # main is protected by a ruleset that GitHub Actions can't bypass, but a deploy key can, so
+      # the release commit is pushed over SSH with that key.
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
+
+      - name: Require green CI for this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          passed=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/build.yml/runs?head_sha=$sha&event=push&status=success" \
+            --jq .total_count)
+          if [ "$passed" -eq 0 ]; then
+            echo "::error::Build hasn't passed on main ($sha) yet; wait for it and run again."; exit 1
+          fi
+
+      - name: Bump the version and assemble the changelog
+        id: prepare
+        env:
+          BUMP: ${{ inputs.bump }}
+          NOTE: ${{ inputs.note }}
+        run: |
+          version=$(python3 scripts/release.py prepare "$BUMP" "$NOTE")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          git --no-pager diff --stat
+          awk -v v="$version" '$0 ~ "^## \\[" v "\\]" {f=1; print; next} /^## \[/ {f=0} f' CHANGELOG.md
+
+      # If something was merged meanwhile, the push is rejected; run the workflow again.
+      - name: Commit to main
+        env:
+          VERSION: ${{ steps.prepare.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A pubspec.yaml CHANGELOG.md changelog.d fastlane/metadata/android/en-US/changelogs
+          git commit --quiet --message "Release $VERSION"
+          git push origin HEAD:main
+          echo "::notice::Committed $VERSION to main; the Release workflow builds and publishes it."

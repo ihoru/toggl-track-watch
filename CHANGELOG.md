@@ -1,8 +1,10 @@
 # Changelog
 
 All notable changes. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
-versions match `version:` in `pubspec.yaml`. The release workflow publishes the section of the
-tagged version as the GitHub Release notes.
+versions match `version:` in `pubspec.yaml`. Pull requests don't edit this file: they add their
+entries to [`changelog.d/`](changelog.d/README.md), and the Prepare release workflow moves them
+into a new section here. The release workflow publishes the section of the tagged version as the
+GitHub Release notes.
 
 ## [1.12.0] - 2026-10-13
 ### Added

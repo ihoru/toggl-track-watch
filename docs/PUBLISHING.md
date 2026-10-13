@@ -1,10 +1,24 @@
 # Publishing
 
 ## Releasing a version
-1. Bump `version:` in `pubspec.yaml` and add a `## [x.y.z]` section to `CHANGELOG.md`, plus
-   `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` (Play's "What's new", at most 500
-   characters; versionCode = build × 10 for the phone, build × 10 + 1 for the watch).
-2. Merge to `main`. `.github/workflows/release.yml` sees that `v<version>` isn't tagged yet and:
+1. Pull requests add their entries to `changelog.d/<PR number or topic>.md` (see
+   [changelog.d/README.md](../changelog.d/README.md)) and leave the version, `CHANGELOG.md` and the
+   Play notes alone, so parallel pull requests don't conflict.
+2. When `main` should ship, open **Actions → Prepare release → Run workflow** on `main`
+   (`.github/workflows/prepare-release.yml`). Its options: the bump (*auto* is minor when there is
+   an Added entry, otherwise patch) and a note to release with when `changelog.d/` is empty (e.g.
+   library updates). It requires a green Build on `main`, then `scripts/release.py`:
+   - bumps `version:` in `pubspec.yaml` (build number + 1),
+   - moves the fragments' entries into a new `## [x.y.z] - date` section of `CHANGELOG.md`, in merge
+     order, and deletes the fragments,
+   - writes Play's "What's new" `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt`
+     from the entries (versionCode = build × 10 for the phone, build × 10 + 1 for the watch; cut to
+     500 characters with a link to the release),
+   - commits "Release x.y.z" to `main`.
+
+   If something was merged to `main` meanwhile, the push is rejected: run it again.
+3. That commit starts `.github/workflows/release.yml`, which sees that `v<version>` isn't tagged
+   yet and:
    - builds signed APKs and app bundles,
    - publishes a GitHub Release (creating the tag) with the APKs and the changelog section,
    - keeps the bundles as the run's `play-bundles-<version>` artifact,
@@ -12,9 +26,20 @@
      `PLAY_TRACK` (repository variable, default `internal`) and the watch bundle to `wear:<track>`,
      with the "What's new" text.
 
-   Merges that don't change the version release nothing.
-3. Pushing a tag by hand (`git tag v1.4.0 && git push origin v1.4.0`) still works; it must match
-   pubspec. To retry a failed release, re-run the workflow run.
+   Merges that don't change the version release nothing. To retry a failed release, re-run its
+   Release run (not Prepare release, which would bump again).
+4. Pushing a tag by hand (`git tag v1.4.0 && git push origin v1.4.0`) still works; it must match
+   pubspec.
+
+### Setup: the release deploy key
+`main` is protected by a ruleset that GitHub Actions can't bypass, so Prepare release pushes with a
+deploy key:
+1. `ssh-keygen -t ed25519 -N '' -C prepare-release -f release-key`
+2. *Settings → Deploy keys → Add deploy key*: `release-key.pub`, with **Allow write access**.
+3. *Settings → Secrets and variables → Actions → New repository secret* `RELEASE_DEPLOY_KEY`: the
+   contents of `release-key`. Then delete both files.
+4. *Settings → Rules → Rulesets → Protect main → Bypass list → Add bypass → Deploy keys*, set to
+   **Always allow**.
 
 The store listing (texts, icon, feature graphic, screenshots) is uploaded separately with
 **Actions → Play listing → Run workflow** (`.github/workflows/play-listing.yml`, fastlane supply)

@@ -12,8 +12,9 @@ Thanks for helping! Bug reports and pull requests are welcome.
 ## Pull requests
 - Branch from `main`, keep changes focused, and describe what you tested on which devices.
 - Before pushing: `dart format lib test`, `flutter analyze`, `flutter test`.
-- Changes that ship in the apps bump `version:` in `pubspec.yaml` (the `+N` build number always;
-  the version name for features or fixes) and add a line to `CHANGELOG.md` under that version.
+- Changes that ship in the apps add a changelog fragment, `changelog.d/<PR number or topic>.md`
+  (see [changelog.d/README.md](changelog.d/README.md)). Don't edit the version, `CHANGELOG.md` or
+  the Play notes: the Prepare release workflow does that.
 - CI builds both APKs and launches them in phone and Wear OS emulators; it must be green.
 
 ## Code layout

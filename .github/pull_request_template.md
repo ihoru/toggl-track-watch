@@ -5,4 +5,4 @@
 
 ## Checklist
 - [ ] `dart format lib test`, `flutter analyze` and `flutter test` pass
-- [ ] Version bumped in `pubspec.yaml` and `CHANGELOG.md` updated (if the apps change)
+- [ ] Changelog fragment added in `changelog.d/` (if the apps change); version and `CHANGELOG.md` untouched

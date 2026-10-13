@@ -3,7 +3,7 @@ name: Release
 # Publishes a GitHub Release with signed APKs and, when PLAY_SERVICE_ACCOUNT_JSON is set, uploads the
 # app bundles to Google Play. See docs/PUBLISHING.md.
 # - Push to main: releases the pubspec.yaml version if its tag v<version> doesn't exist yet, and
-#   creates that tag.
+#   creates that tag. The version is bumped by the Prepare release workflow's commit.
 # - Push a tag like v1.4.0 (matching pubspec.yaml): releases that version.
 on:
   push:
