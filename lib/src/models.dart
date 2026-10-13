@@ -195,18 +195,23 @@ class ViewState {
   }
 
   /// Distinct timers, most recent first: the synced entries (last 7 days, always fresh), then the
-  /// phone's 30-day list. Leaves out the running timer, which is already on the Now page.
-  List<Favorite> recentTimers({int limit = 30}) {
+  /// phone's 30-day list. Leaves out the running timer, which is already on the Now page, and with
+  /// [excludeFavorites] the favorites, which have their own page.
+  List<Favorite> recentTimers({int limit = 30, bool excludeFavorites = false}) {
     Favorite timer(TimeEntry e) => Favorite(description: e.description.trim(), projectId: e.projectId);
     final runningEntry = running;
     final runningTimer = runningEntry == null ? null : timer(runningEntry);
+    final skip = {
+      if (excludeFavorites)
+        for (final f in favorites) Favorite(description: f.description.trim(), projectId: f.projectId),
+    };
     final seen = <Favorite>{};
     final fresh = [
       for (final e in entries)
         if (e.description.trim().isNotEmpty || e.projectId != null) timer(e),
     ];
     for (final f in [...fresh, ...recent]) {
-      if (f == runningTimer) continue;
+      if (f == runningTimer || skip.contains(f)) continue;
       seen.add(f);
       if (seen.length >= limit) break;
     }

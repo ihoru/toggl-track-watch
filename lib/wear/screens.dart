@@ -288,7 +288,7 @@ class RecentPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = WatchScope.of(context).state;
-    final recent = state.recentTimers();
+    final recent = state.recentTimers(excludeFavorites: true);
     return RoundList(
       storageKey: 'recent',
       active: active,

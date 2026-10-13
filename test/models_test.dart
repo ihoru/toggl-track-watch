@@ -71,6 +71,15 @@ void main() {
     expect(sampleState().recentTimers(limit: 2).length, 2);
   });
 
+  test('recent timers can leave out favorites, and the limit counts what is left', () {
+    final state = sampleState().copyWith(favorites: const [Favorite(description: 'Standup ', projectId: 2)]);
+    expect(state.recentTimers(excludeFavorites: true), const [
+      Favorite(description: 'Review', projectId: 2),
+      Favorite(description: 'Deep work', projectId: 1),
+    ]);
+    expect(state.recentTimers(limit: 1, excludeFavorites: true), const [Favorite(description: 'Review', projectId: 2)]);
+  });
+
   test('days group entries with totals', () {
     final days = sampleState(running: false).days();
     expect(days.length, 2);

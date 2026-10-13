@@ -30,7 +30,7 @@ phone app. Start, stop and edit your time entries from your wrist.
 - **Favorites:** as chips, or two per row like on the tile with **Compact favorites** in Settings.
 - **History:** the last 7 days with daily totals. Continue, edit or delete entries, and move their
   start or end time.
-- **Recent:** up to 30 distinct timers of the last 30 days, most recent first.
+- **Recent:** up to 30 distinct timers of the last 30 days that aren't favorites, most recent first.
 - **Frequent:** your most-tracked timers of the last 30 days that aren't favorites.
 - **Sync:** status, API requests left, Refresh, Open on phone and **Settings**.
 - Plus a **tile** (running timer with Open, up to six timers in two columns), a **complication** with
