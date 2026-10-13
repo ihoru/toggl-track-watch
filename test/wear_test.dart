@@ -107,6 +107,36 @@ void main() {
     expect(find.text('No timer running'), findsOneWidget);
   });
 
+  testWidgets('favorites: compact view is off by default and shows two per row when on', (tester) async {
+    final bridge = FakeWatchBridge(sampleState(running: false));
+    await pumpWatch(tester, bridge);
+    await nextPage(tester);
+    expect(find.text('Client A'), findsOneWidget, reason: 'regular chips show the project name');
+
+    for (var i = 0; i < 4; i++) {
+      await nextPage(tester);
+    }
+    await tapText(tester, 'Settings');
+    await tapText(tester, 'Compact favorites');
+    expect(bridge.settings['compactFavorites'], true);
+    Navigator.of(tester.element(find.byType(SettingsScreen))).pop();
+    await settle(tester);
+    for (var i = 0; i < 4; i++) {
+      await tester.fling(find.byType(PageView), const Offset(200, 0), 1000);
+      await settle(tester);
+    }
+
+    expect(find.text('Favorites'), findsOneWidget);
+    expect(find.text('Client A'), findsNothing);
+    final deepWork = tester.getCenter(find.text('Deep work'));
+    final email = tester.getCenter(find.text('Email'));
+    expect(deepWork.dy, email.dy, reason: 'two favorites side by side');
+    expect(deepWork.dx, lessThan(email.dx));
+    await tester.tap(find.text('Email'));
+    await settle(tester);
+    expect(bridge.calls.last, 'start:Email:null');
+  });
+
   testWidgets('now page: New timer first, then the three latest distinct timers', (tester) async {
     final bridge = FakeWatchBridge(sampleState(running: false));
     await pumpWatch(tester, bridge);
@@ -379,16 +409,23 @@ void main() {
   });
 
   testWidgets('saved settings are loaded on start', (tester) async {
-    final bridge = FakeWatchBridge(sampleState())..settings.addAll({'crownStep': 5, 'haptics': false});
+    final bridge = FakeWatchBridge(sampleState())
+      ..settings.addAll({'crownStep': 5, 'haptics': false, 'compactFavorites': true});
     await pumpWatch(tester, bridge);
     for (var i = 0; i < 5; i++) {
       await nextPage(tester);
     }
     await tapText(tester, 'Settings');
-    expect(find.text('Crown step: 5 min'), findsOneWidget);
     final vibration = tester.widget<Switch>(
       find.descendant(of: find.widgetWithText(InkWell, 'Vibration'), matching: find.byType(Switch)),
     );
     expect(vibration.value, isFalse);
+    await tester.scrollUntilVisible(find.text('Compact favorites'), 50, scrollable: find.byType(Scrollable).last);
+    final compact = tester.widget<Switch>(
+      find.descendant(of: find.widgetWithText(InkWell, 'Compact favorites'), matching: find.byType(Switch)),
+    );
+    expect(compact.value, isTrue);
+    await tester.scrollUntilVisible(find.text('Crown step: 5 min'), 50, scrollable: find.byType(Scrollable).last);
+    expect(find.text('Crown step: 5 min'), findsOneWidget);
   });
 }

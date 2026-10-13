@@ -35,7 +35,8 @@ abstract class WatchBridge {
   /// Opens a web or Play Store link on the phone. Returns false when the phone can't be reached.
   Future<bool> openUrlOnPhone(String url);
 
-  /// Watch settings (see WatchSettings.kt): "ongoing" (bool), "crownStep" (int), "haptics" (bool).
+  /// Watch settings (see WatchSettings.kt): "ongoing" (bool), "crownStep" (int), "haptics" (bool),
+  /// "compactFavorites" (bool).
   Future<Map<String, dynamic>> getSettings();
   Future<void> setSetting(String key, Object value);
 
@@ -151,10 +152,11 @@ class WatchModel extends ChangeNotifier {
   Timer? _saveTimer;
 
   /// Watch settings, edited on the Settings screen.
-  Map<String, dynamic> settings = {'ongoing': true, 'crownStep': 1, 'haptics': true};
+  Map<String, dynamic> settings = {'ongoing': true, 'crownStep': 1, 'haptics': true, 'compactFavorites': false};
 
   bool get showOngoing => settings['ongoing'] != false;
   bool get haptics => settings['haptics'] != false;
+  bool get compactFavorites => settings['compactFavorites'] == true;
   int get crownStep => (settings['crownStep'] as num?)?.toInt() ?? 1;
 
   void setSetting(String key, Object value) {
