@@ -62,7 +62,7 @@ object WatchSettings {
     private fun sendToPhone(context: Context) {
         val request = PutDataMapRequest.create(Paths.WATCH_SETTINGS).apply {
             dataMap.putString(Paths.KEY_PAYLOAD, JSONObject(all(context)).toString())
-        }.asPutDataRequest()
+        }.asPutDataRequest().setUrgent()
         Wearable.getDataClient(context).putDataItem(request)
     }
 
