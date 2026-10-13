@@ -137,6 +137,19 @@ void main() {
     expect(bridge.calls.last, 'start:Email:null');
   });
 
+  testWidgets('settings restored from the phone after a reinstall are applied', (tester) async {
+    final bridge = FakeWatchBridge(sampleState(running: false));
+    await pumpWatch(tester, bridge);
+    await nextPage(tester);
+    expect(find.text('Client A'), findsOneWidget, reason: 'regular chips by default');
+
+    // WatchStore writes the phone's copy to the watch settings, then publishes the state.
+    bridge.settings['compactFavorites'] = true;
+    bridge.emit(bridge.state.copyWith(watchSettings: {'compactFavorites': true}));
+    await settle(tester);
+    expect(find.text('Client A'), findsNothing, reason: 'compact chips leave out the project');
+  });
+
   testWidgets('now page: New timer first, then the three latest distinct timers', (tester) async {
     final bridge = FakeWatchBridge(sampleState(running: false));
     await pumpWatch(tester, bridge);

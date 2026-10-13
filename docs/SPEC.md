@@ -53,6 +53,11 @@ calls are made by the phone.**
 * The phone publishes its **view state** (server snapshot with its queue
   applied, projects, favorites, received command ids, sync status) to
   `/state`. The watch applies its own still-unacknowledged commands on top.
+* **Watch settings** are written by the watch to the DataItem `/watch-settings`.
+  The phone keeps a copy (also across sign-out and in its Block Store backup)
+  and publishes it with the view state. A freshly installed watch app, with no
+  settings of its own yet, restores that copy; otherwise the watch re-sends
+  its settings whenever the copy is missing or differs.
 * `stop` commands that are less than 2 minutes old use Toggl's `stop`
   endpoint; older ones set the exact stop time.
 

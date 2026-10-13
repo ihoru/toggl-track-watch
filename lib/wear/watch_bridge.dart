@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -205,6 +206,13 @@ class WatchModel extends ChangeNotifier {
   }
 
   void _set(ViewState s) {
+    // The watch restores its settings from the phone's copy after a reinstall: reload them.
+    if (!mapEquals(s.watchSettings, state.watchSettings)) {
+      bridge.getSettings().then((loaded) {
+        settings = {...settings, ...loaded};
+        notifyListeners();
+      });
+    }
     state = s;
     _stateLoaded = true;
     notifyListeners();

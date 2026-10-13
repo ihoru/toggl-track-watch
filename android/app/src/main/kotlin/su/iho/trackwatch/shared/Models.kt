@@ -13,6 +13,10 @@ object Paths {
     const val STATE = "/state"
     const val COMMAND_PREFIX = "/cmd/"
     const val REFRESH = "/refresh"
+
+    /** The watch's settings, kept on the phone so they survive reinstalling the watch app. */
+    const val WATCH_SETTINGS = "/watch-settings"
+
     const val KEY_PAYLOAD = "payload"
 }
 
@@ -144,6 +148,8 @@ data class ViewState(
     /** When the current quota window resets (epoch ms). */
     val quotaResetsAt: Long? = null,
     val phoneReachable: Boolean = true,
+    /** The phone's copy of the watch settings (see WatchSettings.kt), or null before the watch sent them. */
+    val watchSettings: Map<String, Any>? = null,
 ) {
     val running: TimeEntry? get() = entries.firstOrNull { it.isRunning }
 
@@ -165,6 +171,7 @@ data class ViewState(
         .put("quotaRemaining", quotaRemaining ?: JSONObject.NULL)
         .put("quotaResetsAt", quotaResetsAt ?: JSONObject.NULL)
         .put("phoneReachable", phoneReachable)
+        .put("watchSettings", watchSettings?.let { JSONObject(it) } ?: JSONObject.NULL)
 
     fun toBytes(): ByteArray = gzip(toJson().toString())
 
@@ -195,6 +202,7 @@ data class ViewState(
             quotaRemaining = o.optLongOrNull("quotaRemaining")?.toInt(),
             quotaResetsAt = o.optLongOrNull("quotaResetsAt"),
             phoneReachable = o.optBoolean("phoneReachable", true),
+            watchSettings = o.optJSONObject("watchSettings")?.toMap(),
         )
 
         fun fromBytes(bytes: ByteArray) = fromJson(JSONObject(gunzip(bytes)))
@@ -202,6 +210,8 @@ data class ViewState(
 }
 
 fun JSONObject.optLongOrNull(key: String): Long? = if (!has(key) || isNull(key)) null else getLong(key)
+
+fun JSONObject.toMap(): Map<String, Any> = keys().asSequence().associateWith { get(it) }
 
 fun JSONArray?.objects(): List<JSONObject> =
     if (this == null) emptyList() else (0 until length()).map { getJSONObject(it) }

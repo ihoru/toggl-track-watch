@@ -110,6 +110,7 @@ class ViewState {
     this.quotaRemaining,
     this.quotaResetsAt,
     this.phoneReachable = true,
+    this.watchSettings,
   });
 
   final bool configured;
@@ -137,6 +138,9 @@ class ViewState {
   final DateTime? quotaResetsAt;
   final bool phoneReachable;
 
+  /// The phone's copy of the watch settings, restored on the watch after a reinstall (see WatchSettings.kt).
+  final Map<String, dynamic>? watchSettings;
+
   static const empty = ViewState();
 
   /// Requests left in the current quota window, or null when unknown or the window has already reset.
@@ -146,7 +150,7 @@ class ViewState {
     return quotaRemaining;
   }
 
-  ViewState copyWith({List<Favorite>? favorites}) => ViewState(
+  ViewState copyWith({List<Favorite>? favorites, Map<String, dynamic>? watchSettings}) => ViewState(
     configured: configured,
     entries: entries,
     projects: projects,
@@ -161,6 +165,7 @@ class ViewState {
     quotaRemaining: quotaRemaining,
     quotaResetsAt: quotaResetsAt,
     phoneReachable: phoneReachable,
+    watchSettings: watchSettings ?? this.watchSettings,
   );
 
   TimeEntry? get running {
@@ -245,6 +250,7 @@ class ViewState {
       quotaRemaining: (json['quotaRemaining'] as num?)?.toInt(),
       quotaResetsAt: time('quotaResetsAt'),
       phoneReachable: json['phoneReachable'] as bool? ?? true,
+      watchSettings: (json['watchSettings'] as Map?)?.cast<String, dynamic>(),
     );
   }
 

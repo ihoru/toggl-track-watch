@@ -12,10 +12,12 @@ import su.iho.trackwatch.shared.Favorite
 import su.iho.trackwatch.shared.gunzip
 import su.iho.trackwatch.shared.gzip
 import su.iho.trackwatch.shared.objects
+import su.iho.trackwatch.shared.toMap
 
 /**
- * Keeps the Toggl token, favorites and compact-view setting in Google Play services Block Store,
- * so they come back after reinstalling the app (and on a new phone when Google backup is on).
+ * Keeps the Toggl token, favorites, compact-view setting and the watch's settings in Google Play
+ * services Block Store, so they come back after reinstalling the app (and on a new phone when
+ * Google backup is on).
  * Stored end-to-end encrypted in the cloud when the device supports it (screen lock set),
  * otherwise only on this device. Readable only by an app with the same package and signing key.
  */
@@ -24,7 +26,7 @@ object CloudBackup {
     private const val MAX_CHUNKS = 8
     private const val CHUNK_SIZE = 3800 // Block Store allows 4 KB per entry.
 
-    data class Backup(val token: String?, val favorites: List<Favorite>, val compact: Boolean)
+    data class Backup(val token: String?, val favorites: List<Favorite>, val compact: Boolean, val watchSettings: Map<String, Any>?)
 
     /** Saves the current settings. Fire-and-forget; failures only mean there is no backup. */
     fun save(context: Context) {
@@ -34,6 +36,7 @@ object CloudBackup {
             .put("token", store.token ?: JSONObject.NULL)
             .put("favorites", JSONArray(store.favorites.map { it.toJson() }))
             .put("compact", app.getSharedPreferences("ui", Context.MODE_PRIVATE).getBoolean("compact", false))
+            .put("watchSettings", store.watchSettings?.let { JSONObject(it) } ?: JSONObject.NULL)
         val chunks = gzip(json.toString()).toList().chunked(CHUNK_SIZE).map { it.toByteArray() }
         if (chunks.size > MAX_CHUNKS) return
 
@@ -61,6 +64,7 @@ object CloudBackup {
             token = if (json.isNull("token")) null else json.getString("token"),
             favorites = json.optJSONArray("favorites").objects().map(Favorite::fromJson),
             compact = json.optBoolean("compact", false),
+            watchSettings = json.optJSONObject("watchSettings")?.toMap(),
         )
     }
 }
