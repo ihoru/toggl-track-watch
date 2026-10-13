@@ -77,6 +77,7 @@ class PhoneStore private constructor(private val context: Context) {
     @get:Synchronized
     val frequent: List<Frequent> get() = readArray(K_FREQUENT).map(Frequent::fromJson)
 
+    /** All distinct timers of the last 30 days, newest first; cut when publishing. */
     @get:Synchronized
     val recent: List<Favorite> get() = readArray(K_RECENT).map(Favorite::fromJson)
 
@@ -229,7 +230,7 @@ class PhoneStore private constructor(private val context: Context) {
             projects = projects.sortedBy { it.name.lowercase() },
             favorites = favorites,
             frequent = Frequency.withoutFavorites(frequent, favorites),
-            recent = recent,
+            recent = Frequency.recentForWatch(recent, favorites),
             acks = readStrings(K_ACKS).takeLast(MAX_ACKS),
             idMap = ids,
             pendingCount = pending.size,

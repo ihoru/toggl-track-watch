@@ -288,7 +288,7 @@ class RecentPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = WatchScope.of(context).state;
-    final recent = state.recentTimers();
+    final recent = state.recentTimers(excludeFavorites: true);
     return RoundList(
       storageKey: 'recent',
       active: active,
@@ -298,7 +298,7 @@ class RecentPage extends StatelessWidget {
         if (recent.isEmpty)
           const Padding(
             padding: EdgeInsets.all(12),
-            child: Text('Nothing tracked in the last 30 days yet.', textAlign: TextAlign.center),
+            child: Text('No timers besides favorites in the last 30 days.', textAlign: TextAlign.center),
           ),
         for (final r in recent)
           _TimerChip(

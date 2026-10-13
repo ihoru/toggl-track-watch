@@ -53,12 +53,12 @@ void main() {
     await nextPage(tester);
     expect(find.textContaining('Today'), findsOneWidget);
 
-    // Recent: newest first, favorites included, the running timer left out.
+    // Recent: newest first, without favorites and the running timer.
     await nextPage(tester);
     expect(find.text('Recent'), findsOneWidget);
     expect(find.text('Standup'), findsOneWidget);
     expect(find.text('Review'), findsOneWidget);
-    expect(find.text('Deep work'), findsOneWidget);
+    expect(find.text('Deep work'), findsNothing);
     expect(find.text('Coding'), findsNothing);
 
     // Frequent (the phone has already left out favorites).
