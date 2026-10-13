@@ -3,7 +3,7 @@ name: Release
 # Publishes a GitHub Release with signed APKs and, when PLAY_SERVICE_ACCOUNT_JSON is set, uploads the
 # app bundles to Google Play. See docs/PUBLISHING.md.
 # - Push to main: releases the pubspec.yaml version if its tag v<version> doesn't exist yet, and
-#   creates that tag.
+#   creates that tag. The version is bumped by the Prepare release workflow's commit.
 # - Push a tag like v1.4.0 (matching pubspec.yaml): releases that version.
 on:
   push:
@@ -12,10 +12,6 @@ on:
 
 permissions:
   contents: write
-
-concurrency:
-  group: release
-  cancel-in-progress: false
 
 jobs:
   version:
@@ -26,6 +22,8 @@ jobs:
       build: ${{ steps.check.outputs.build }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
 
       - name: Check the version to release
         id: check
@@ -45,7 +43,13 @@ jobs:
             # The commit the tag points to (dereferenced for annotated tags), empty when untagged.
             TAGGED=$(git ls-remote --tags origin "refs/tags/v$PUBSPEC" "refs/tags/v$PUBSPEC^{}" \
               | sort -k2 | tail -1 | cut -f1)
-            if [ -z "$TAGGED" ]; then
+            PARENT=$(git show HEAD^:pubspec.yaml 2>/dev/null | grep '^version:' | awk '{print $2}')
+            if [ -z "$TAGGED" ] && [ "$PARENT" = "$FULL" ]; then
+              # Only the commit that changed the version releases it (Prepare release's commit), so
+              # a later merge never publishes its code under a version whose release failed.
+              echo "::warning::v$PUBSPEC is not tagged, but this commit doesn't change the version; re-run the failed Release run of the commit that set it."
+              echo "release=false" >> "$GITHUB_OUTPUT"
+            elif [ -z "$TAGGED" ]; then
               echo "v$PUBSPEC is not tagged yet; releasing it."
               echo "release=true" >> "$GITHUB_OUTPUT"
             elif [ "$TAGGED" = "$GITHUB_SHA" ]; then
@@ -62,6 +66,11 @@ jobs:
     needs: version
     if: needs.version.outputs.release == 'true'
     runs-on: ubuntu-24.04
+    # Only runs that release queue here, so a later push to main (whose version job decides not to
+    # release) never replaces a pending release.
+    concurrency:
+      group: release
+      cancel-in-progress: false
     env:
       PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
       VERSION: ${{ needs.version.outputs.version }}
