@@ -4,6 +4,11 @@ All notable changes. The format follows [Keep a Changelog](https://keepachangelo
 versions match `version:` in `pubspec.yaml`. The release workflow publishes the section of the
 tagged version as the GitHub Release notes.
 
+## [1.11.0] - 2026-10-13
+### Added
+- Watch: **Compact favorites** in Settings (off by default) shows the Favorites page as small
+  buttons in the project's color, two per row, like the timers on the tile.
+
 ## [1.10.3] - 2026-10-10
 ### Changed
 - Build: updated Android libraries (Wear 1.4.0, Wear Tiles 1.6.2, ProtoLayout 1.4.2, Kotlin

@@ -1,0 +1,1 @@
+Watch: new Compact favorites setting shows favorites two per row, like on the tile.

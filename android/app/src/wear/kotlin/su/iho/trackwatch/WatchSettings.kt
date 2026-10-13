@@ -13,7 +13,10 @@ object WatchSettings {
     /** Vibrate on actions (start, stop, save). */
     const val HAPTICS = "haptics"
 
-    private val defaults = mapOf<String, Any>(ONGOING to true, CROWN_STEP to 1, HAPTICS to true)
+    /** Show favorites as small two-per-row buttons, like on the tile. */
+    const val COMPACT_FAVORITES = "compactFavorites"
+
+    private val defaults = mapOf<String, Any>(ONGOING to true, CROWN_STEP to 1, HAPTICS to true, COMPACT_FAVORITES to false)
 
     private fun prefs(context: Context) = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
 

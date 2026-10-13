@@ -192,26 +192,90 @@ class FavoritesPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final state = WatchScope.of(context).state;
+    final model = WatchScope.of(context);
+    final state = model.state;
+    final favorites = state.favorites;
     return RoundList(
       storageKey: 'favorites',
       active: active,
       swipeBack: false,
       children: [
         const WearHeader('Favorites'),
-        if (state.favorites.isEmpty)
+        if (favorites.isEmpty)
           const Padding(
             padding: EdgeInsets.all(12),
             child: Text('Add favorites in the phone app.', textAlign: TextAlign.center),
           ),
-        for (final f in state.favorites)
-          _TimerChip(
-            description: f.description,
-            projectId: f.projectId,
-            state: state,
-            onTap: () => startTimer(context, f.description, f.projectId),
-          ),
+        if (model.compactFavorites)
+          for (var i = 0; i < favorites.length; i += 2)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  for (var j = i; j < i + 2; j++) ...[
+                    if (j > i) const SizedBox(width: 4),
+                    Expanded(
+                      child: j < favorites.length
+                          ? _CompactTimer(
+                              description: favorites[j].description,
+                              projectId: favorites[j].projectId,
+                              state: state,
+                              onTap: () => startTimer(context, favorites[j].description, favorites[j].projectId),
+                            )
+                          : const SizedBox(),
+                    ),
+                  ],
+                ],
+              ),
+            )
+        else
+          for (final f in favorites)
+            _TimerChip(
+              description: f.description,
+              projectId: f.projectId,
+              state: state,
+              onTap: () => startTimer(context, f.description, f.projectId),
+            ),
       ],
+    );
+  }
+}
+
+/// A small rounded button in the project's color, two per row, like the timers on the tile.
+class _CompactTimer extends StatelessWidget {
+  const _CompactTimer({required this.description, required this.projectId, required this.state, required this.onTap});
+
+  final String description;
+  final int? projectId;
+  final ViewState state;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final project = state.project(projectId);
+    final color = colorFromHex(project?.color);
+    final content = color.computeLuminance() > 0.5 ? Colors.black : Colors.white;
+    return Material(
+      color: color,
+      shape: const StadiumBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: SizedBox(
+          height: 34,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Text(
+                description.isEmpty ? (project?.name ?? '(none)') : description,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(color: content),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -514,6 +578,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
           (v) => model.setSetting('ongoing', v),
         ),
         toggle('Vibration', 'On start, stop and save', model.haptics, (v) => model.setSetting('haptics', v)),
+        toggle(
+          'Compact favorites',
+          'Two per row, like on the tile',
+          model.compactFavorites,
+          (v) => model.setSetting('compactFavorites', v),
+        ),
         WearChip(
           label: 'Crown step: ${model.crownStep} min',
           secondary: 'Editing start/end time · tap to change',
