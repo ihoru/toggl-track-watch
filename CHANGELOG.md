@@ -6,6 +6,10 @@ entries to [`changelog.d/`](changelog.d/README.md), and the Prepare release work
 into a new section here. The release workflow publishes the section of the tagged version as the
 GitHub Release notes.
 
+## [1.12.1] - 2026-10-15
+### Fixed
+- Watch: the **Recent** page leaves out favorites, which already have their own page.
+
 ## [1.12.0] - 2026-10-13
 ### Added
 - Watch: settings (running-timer notification, vibration, crown step, compact favorites) come
