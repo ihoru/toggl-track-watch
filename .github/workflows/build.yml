@@ -37,9 +37,10 @@ jobs:
       # Both APKs must be signed with the same key for the watch and phone apps
       # to talk to each other. Set the TRACKWATCH_KEYSTORE_BASE64,
       # TRACKWATCH_KEYSTORE_PASSWORD, TRACKWATCH_KEY_ALIAS and
-      # TRACKWATCH_KEY_PASSWORD secrets to use a stable key; without them the
-      # runner's debug key is used (same key for both APKs of one run, but it
-      # changes between runs).
+      # TRACKWATCH_KEY_PASSWORD secrets to use a stable key. Without them (e.g.
+      # Dependabot pull requests, which get no Actions secrets) a throwaway key
+      # is generated for this run: the debug key can't be used, since each
+      # Gradle build may create its own and the signatures then differ.
       - name: Signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.TRACKWATCH_KEYSTORE_BASE64 }}
@@ -70,7 +71,15 @@ jobs:
               echo "TRACKWATCH_KEY_PASSWORD=$KEY_PASSWORD"
             } >> "$GITHUB_ENV"
           else
-            echo "No signing secrets; using the runner's debug key."
+            echo "No signing secrets; generating a throwaway key for this run."
+            keytool -genkeypair -keystore "$RUNNER_TEMP/trackwatch.jks" -storepass ci-only -keypass ci-only \
+              -alias ci -keyalg RSA -keysize 2048 -validity 1 -dname 'CN=Track Watch CI' -noprompt
+            {
+              echo "TRACKWATCH_KEYSTORE=$RUNNER_TEMP/trackwatch.jks"
+              echo "TRACKWATCH_KEYSTORE_PASSWORD=ci-only"
+              echo "TRACKWATCH_KEY_ALIAS=ci"
+              echo "TRACKWATCH_KEY_PASSWORD=ci-only"
+            } >> "$GITHUB_ENV"
           fi
 
       # Phone: one APK per CPU type; real phones need arm64, x86_64 is for the emulator smoke test.
