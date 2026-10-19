@@ -6,6 +6,11 @@ entries to [`changelog.d/`](changelog.d/README.md), and the Prepare release work
 into a new section here. The release workflow publishes the section of the tagged version as the
 GitHub Release notes.
 
+## [1.12.2] - 2026-10-19
+### Changed
+- Watch: **New timer** starts a timer right away, without a description or project. Add them
+  later with Edit on the watch or on the phone.
+
 ## [1.12.1] - 2026-10-15
 ### Fixed
 - Watch: the **Recent** page leaves out favorites, which already have their own page.

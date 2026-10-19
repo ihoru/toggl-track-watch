@@ -1,3 +1,0 @@
-### Changed
-- Watch: **New timer** starts a timer right away, without a description or project. Add them
-  later with Edit on the watch or on the phone.
