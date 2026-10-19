@@ -214,20 +214,13 @@ void main() {
     expect(find.text('Phone not reachable'), findsOneWidget);
   });
 
-  testWidgets('new timer with voice description and project', (tester) async {
-    final bridge = FakeWatchBridge(sampleState(running: false))..nextText = 'Planning';
+  testWidgets('new timer starts right away without description or project', (tester) async {
+    final bridge = FakeWatchBridge(sampleState(running: false));
     await pumpWatch(tester, bridge);
 
     await tapText(tester, 'New timer');
-    await tapText(tester, 'Add description');
-    expect(find.text('Planning'), findsOneWidget);
-    await tapText(tester, 'No project');
-    await tapText(tester, 'Internal');
-    await tapText(tester, 'Start');
-    expect(bridge.calls.last, 'start:Planning:2');
+    expect(bridge.calls.last, 'start::null');
     expect(find.text('Add description'), findsNothing);
-    await tester.scrollUntilVisible(find.text('No timer running'), -50, scrollable: find.byType(Scrollable).last);
-    expect(find.text('No timer running'), findsOneWidget);
   });
 
   testWidgets('history: edit, continue and delete an entry', (tester) async {
