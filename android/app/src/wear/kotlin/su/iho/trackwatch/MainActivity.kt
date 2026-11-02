@@ -1,12 +1,15 @@
 package su.iho.trackwatch
 
 import android.Manifest
+import android.app.AlarmManager
 import android.app.RemoteInput
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.view.WindowManager
 import androidx.wear.ambient.AmbientLifecycleObserver
 import androidx.wear.remote.interactions.RemoteActivityHelper
@@ -103,7 +106,25 @@ class MainActivity : FlutterActivity() {
                 }
                 "openOnPhone" -> openOnPhone("trackwatch://open", result)
                 "openUrlOnPhone" -> openOnPhone(call.argument<String>("url")!!, result)
-                "getSettings" -> result.success(WatchSettings.all(this))
+                // exactAlarms is read-only: whether the watch-face chip can update its minutes on time.
+                "getSettings" -> result.success(
+                    WatchSettings.all(this) + ("exactAlarms" to getSystemService(AlarmManager::class.java).canScheduleExactAlarms())
+                )
+                "allowExactAlarms" -> {
+                    val pkg = Uri.parse("package:$packageName")
+                    val opened = listOf(
+                        Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, pkg),
+                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg),
+                    ).any { intent ->
+                        try {
+                            startActivity(intent)
+                            true
+                        } catch (_: ActivityNotFoundException) {
+                            false
+                        }
+                    }
+                    result.success(opened)
+                }
                 "setSetting" -> {
                     WatchSettings.set(this, call.argument<String>("key")!!, call.argument<Any>("value")!!)
                     if (call.argument<String>("key") == WatchSettings.ONGOING) OngoingTimer.refresh(this, store.view())

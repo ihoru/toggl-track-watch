@@ -2,6 +2,8 @@
     <uses-feature android:name="android.hardware.type.watch"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- Updates the elapsed minutes in the watch-face chip on time (granted in Settings). -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
 
     <application>
         <!-- The watch app needs the phone app: all Toggl calls go through it. -->
@@ -53,5 +55,12 @@
         <receiver
             android:name=".StopTimerReceiver"
             android:exported="false"/>
+        <receiver
+            android:name=".MinuteTickReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED"/>
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

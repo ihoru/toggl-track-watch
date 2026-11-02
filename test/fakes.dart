@@ -137,6 +137,12 @@ class FakeWatchBridge implements WatchBridge {
   Future<void> setSetting(String key, Object value) async => settings[key] = value;
 
   @override
+  Future<bool> allowExactAlarms() async {
+    calls.add('allowExactAlarms');
+    return true;
+  }
+
+  @override
   Future<bool> openOnPhone() async {
     calls.add('openOnPhone');
     return phoneReachable;
