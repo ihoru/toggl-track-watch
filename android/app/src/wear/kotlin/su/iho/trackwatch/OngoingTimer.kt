@@ -110,11 +110,16 @@ object OngoingTimer {
     /**
      * Wakes us when the shown minute changes. Not a wakeup alarm: while the watch sleeps it fires with
      * the next wake (e.g. the watch face's minute tick or raising the wrist), so it costs no extra wakeups.
+     * Exact when allowed (Alarms & reminders): Android 12+ stretches an inexact window to 10 minutes.
      */
     private fun scheduleTick(context: Context, start: Long, elapsed: Long) {
         val next = start + (elapsed.coerceAtLeast(0) / 60_000 + 1) * 60_000
-        context.getSystemService(AlarmManager::class.java)
-            .setWindow(AlarmManager.RTC, next, 5_000, tickIntent(context))
+        val alarms = context.getSystemService(AlarmManager::class.java)
+        if (alarms.canScheduleExactAlarms()) {
+            alarms.setExact(AlarmManager.RTC, next, tickIntent(context))
+        } else {
+            alarms.setWindow(AlarmManager.RTC, next, 5_000, tickIntent(context))
+        }
     }
 
     private fun cancelTick(context: Context) {
@@ -122,7 +127,7 @@ object OngoingTimer {
     }
 }
 
-/** Refreshes the elapsed minutes in the Ongoing Activity. */
+/** Refreshes the elapsed minutes in the Ongoing Activity, also once exact alarms are allowed. */
 class MinuteTickReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         OngoingTimer.update(context, WatchStore.get(context).view())

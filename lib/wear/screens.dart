@@ -553,6 +553,20 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   String? _message;
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    // Picks up the Alarms & reminders permission after coming back from the system page.
+    _lifecycle = AppLifecycleListener(onResume: () => WatchScope.read(context).reloadSettings());
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
 
   Future<void> _openLink(String url) async {
     final ok = await WatchScope.read(context).bridge.openUrlOnPhone(url);
@@ -577,6 +591,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           model.showOngoing,
           (v) => model.setSetting('ongoing', v),
         ),
+        if (model.showOngoing && !model.exactAlarms)
+          WearChip(
+            label: 'Update every minute',
+            secondary: 'Allow alarms for the time on the watch face',
+            icon: Icons.alarm,
+            onTap: () async {
+              final ok = await model.bridge.allowExactAlarms();
+              if (!ok && mounted) setState(() => _message = 'Allow it in system settings');
+            },
+          ),
         toggle('Vibration', 'On start, stop and save', model.haptics, (v) => model.setSetting('haptics', v)),
         toggle(
           'Compact favorites',

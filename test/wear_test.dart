@@ -378,6 +378,29 @@ void main() {
     expect(find.text('Edit end time'), findsNothing);
   });
 
+  testWidgets('settings: asks for exact alarms only when they are missing', (tester) async {
+    final bridge = FakeWatchBridge(sampleState())..settings['exactAlarms'] = false;
+    await pumpWatch(tester, bridge);
+    for (var i = 0; i < 5; i++) {
+      await nextPage(tester);
+    }
+
+    await tapText(tester, 'Settings');
+    await tapText(tester, 'Update every minute');
+    expect(bridge.calls.last, 'allowExactAlarms');
+    await tester.scrollUntilVisible(
+      find.text('Timer notification'),
+      -50,
+      scrollable: find.byType(Scrollable).hitTestable().last,
+    );
+    await tester.ensureVisible(find.text('Timer notification'));
+    await tester.pump();
+    await tester.tap(find.text('Timer notification'));
+    await settle(tester);
+    expect(bridge.settings['ongoing'], false);
+    expect(find.text('Update every minute'), findsNothing);
+  });
+
   testWidgets('settings: toggles are saved and the crown step applies', (tester) async {
     final state = sampleState();
     final start = state.running!.start;

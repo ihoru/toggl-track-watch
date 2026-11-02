@@ -37,9 +37,13 @@ abstract class WatchBridge {
   Future<bool> openUrlOnPhone(String url);
 
   /// Watch settings (see WatchSettings.kt): "ongoing" (bool), "crownStep" (int), "haptics" (bool),
-  /// "compactFavorites" (bool).
+  /// "compactFavorites" (bool), and the read-only "exactAlarms" (bool): whether the watch-face chip
+  /// can update its elapsed minutes on time.
   Future<Map<String, dynamic>> getSettings();
   Future<void> setSetting(String key, Object value);
+
+  /// Opens the system page that allows exact alarms (Alarms & reminders). Returns false if none opened.
+  Future<bool> allowExactAlarms();
 
   /// Opens the system voice/keyboard input. Returns null when cancelled.
   Future<String?> textInput(String label);
@@ -111,6 +115,9 @@ class ChannelWatchBridge implements WatchBridge {
       _methods.invokeMethod('setSetting', {'key': key, 'value': value});
 
   @override
+  Future<bool> allowExactAlarms() async => await _methods.invokeMethod<bool>('allowExactAlarms') ?? false;
+
+  @override
   Future<String?> textInput(String label) => _methods.invokeMethod<String>('textInput', {'label': label});
 
   @override
@@ -158,6 +165,7 @@ class WatchModel extends ChangeNotifier {
   bool get showOngoing => settings['ongoing'] != false;
   bool get haptics => settings['haptics'] != false;
   bool get compactFavorites => settings['compactFavorites'] == true;
+  bool get exactAlarms => settings['exactAlarms'] != false;
   int get crownStep => (settings['crownStep'] as num?)?.toInt() ?? 1;
 
   void setSetting(String key, Object value) {
@@ -205,14 +213,17 @@ class WatchModel extends ChangeNotifier {
     await bridge.start(description, projectId);
   }
 
+  /// Re-reads the settings, e.g. after returning from a system settings page.
+  void reloadSettings() {
+    bridge.getSettings().then((loaded) {
+      settings = {...settings, ...loaded};
+      notifyListeners();
+    });
+  }
+
   void _set(ViewState s) {
     // The watch restores its settings from the phone's copy after a reinstall: reload them.
-    if (!mapEquals(s.watchSettings, state.watchSettings)) {
-      bridge.getSettings().then((loaded) {
-        settings = {...settings, ...loaded};
-        notifyListeners();
-      });
-    }
+    if (!mapEquals(s.watchSettings, state.watchSettings)) reloadSettings();
     state = s;
     _stateLoaded = true;
     notifyListeners();
