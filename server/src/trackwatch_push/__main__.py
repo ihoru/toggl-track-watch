@@ -25,7 +25,7 @@ import urllib.request
 from pathlib import Path
 
 TOGGL_API = "https://api.track.toggl.com/api/v9"
-WEBHOOKS_API = "https://track.toggl.com/webhooks/api/v1"
+WEBHOOKS_API = "https://api.track.toggl.com/webhooks/api/v1"
 USER_AGENT = "trackwatch-push (https://github.com/ihoru/toggl-track-watch)"
 EVENT_FILTERS = [
     {"entity": "time_entry", "action": "created"},

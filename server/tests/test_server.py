@@ -103,10 +103,18 @@ def test_parse_deleted_and_other_events():
         toggl.parse_event([1])
 
 
-def test_long_descriptions_are_cut():
-    long = {**STOP_EVENT, "payload": {**STOP_EVENT["payload"], "description": "x" * 5000}}
-    entry = json.loads(toggl.parse_event(long).fcm_data()["entry"])
-    assert len(entry["description"]) == toggl.MAX_DESCRIPTION
+@pytest.mark.parametrize("description", ["x" * 5000, "Щ" * 3000, "🙂" * 2000])
+def test_long_descriptions_fit_in_an_fcm_message(description):
+    long = {**STOP_EVENT, "payload": {**STOP_EVENT["payload"], "description": description}}
+    data = toggl.parse_event(long).fcm_data()
+    assert len(json.dumps(data, ensure_ascii=False).encode()) < 4096
+    entry = json.loads(data["entry"])
+    assert entry["description"] and description.startswith(entry["description"])
+
+
+def test_short_non_latin_descriptions_are_kept():
+    event = {**STOP_EVENT, "payload": {**STOP_EVENT["payload"], "description": "Работа"}}
+    assert json.loads(toggl.parse_event(event).fcm_data()["entry"])["description"] == "Работа"
 
 
 def test_fcm_message_is_high_priority_data():

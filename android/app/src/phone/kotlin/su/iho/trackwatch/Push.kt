@@ -47,7 +47,8 @@ object Push {
     private const val K_REGISTERED_AT = "registeredAt"
     private const val K_ERROR = "error"
     private const val K_LAST_MESSAGE = "lastMessageAt"
-    private const val REGISTER = "push-register"
+    // Register and unregister calls share one queue, so a late unregister can't undo a newer registration.
+    private const val SERVER_CALLS = "push-server"
     private const val REREGISTER_AFTER = 7 * 24 * 60 * 60_000L
 
     private fun prefs(context: Context) = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -116,7 +117,7 @@ object Push {
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(REGISTER, ExistingWorkPolicy.REPLACE, request)
+        WorkManager.getInstance(context).enqueueUniqueWork(SERVER_CALLS, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
     }
 
     /** On app start and daily: registers when not registered yet, or re-registers weekly in case the server lost it. */
@@ -139,7 +140,7 @@ object Push {
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setInputData(workDataOf("url" to url, "secret" to secret, "token" to token))
             .build()
-        WorkManager.getInstance(context).enqueue(request)
+        WorkManager.getInstance(context).enqueueUniqueWork(SERVER_CALLS, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
     }
 
     internal fun newToken(context: Context, token: String) {
@@ -267,6 +268,11 @@ class PushUnregisterWorker(context: Context, params: WorkerParameters) : Corouti
 class PushService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         Push.newToken(this, token)
+    }
+
+    /** FCM dropped messages it held too long or too many of (phone offline): catch up from Toggl. */
+    override fun onDeletedMessages() {
+        if (PhoneStore.get(this).token != null) Sync.refreshSoon(this, 2_000)
     }
 
     override fun onMessageReceived(message: RemoteMessage) {

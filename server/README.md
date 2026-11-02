@@ -82,7 +82,7 @@ below in the environment (e.g. from a systemd unit).
 | `TRACKWATCH_APP_SECRET` | Phones must send it to register. |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Path to the Firebase service account JSON (set by `compose.yaml`). |
 | `FIREBASE_PROJECT_ID` | Optional; read from the service account file. |
-| `TRACKWATCH_DATA_DIR` | Where `devices.json` is kept (`/data` in Docker, `./data` otherwise). |
+| `TRACKWATCH_DATA_DIR` | Where `devices.json` is kept (`/data` in Docker, on the `data` volume; `./data` otherwise). |
 | `HOST`, `PORT` | Default `0.0.0.0:8080`. |
 
 Endpoints: `POST /toggl/webhook` (Toggl), `POST`/`DELETE /devices` (the phone app, with

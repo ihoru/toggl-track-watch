@@ -15,7 +15,7 @@ SIGNATURE_HEADER = "X-Webhook-Signature-256"
 
 # Fields of a time entry the phone needs to tell whether it already knows this change.
 ENTRY_FIELDS = ("id", "workspace_id", "user_id", "description", "project_id", "start", "stop", "duration", "server_deleted_at")
-MAX_DESCRIPTION = 1000  # FCM data messages are limited to 4 KB.
+MAX_ENTRY_BYTES = 3000  # FCM data messages are limited to 4 KB in all.
 
 
 def verify_signature(secret: str, body: bytes, header: str | None) -> bool:
@@ -48,9 +48,15 @@ class TimeEntryEvent:
     def fcm_data(self) -> dict[str, str]:
         """FCM data message values (all strings)."""
         entry = {k: self.entry.get(k) for k in ENTRY_FIELDS if k in self.entry}
-        if isinstance(entry.get("description"), str):
-            entry["description"] = entry["description"][:MAX_DESCRIPTION]
-        return {"kind": "time_entry", "action": self.action, "entry": json.dumps(entry, separators=(",", ":"))}
+        text = _dumps(entry)
+        description = entry.get("description")
+        if len(text.encode()) > MAX_ENTRY_BYTES and isinstance(description, str):
+            # Too long (e.g. a long non-Latin description): cut it to fit. The phone then sees a
+            # difference from what it knows and refreshes, which brings the full description.
+            room = MAX_ENTRY_BYTES - len(_dumps({**entry, "description": ""}).encode())
+            entry["description"] = description.encode()[: max(room, 0)].decode(errors="ignore")
+            text = _dumps(entry)
+        return {"kind": "time_entry", "action": self.action, "entry": text}
 
 
 @dataclass(frozen=True)
@@ -61,6 +67,10 @@ class OtherEvent:
 
 
 Event = Ping | TimeEntryEvent | OtherEvent
+
+
+def _dumps(value: Any) -> str:
+    return json.dumps(value, separators=(",", ":"), ensure_ascii=False)
 
 
 def _int(value: Any) -> int | None:

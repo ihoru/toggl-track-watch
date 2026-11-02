@@ -7,8 +7,12 @@ services:
     environment:
       GOOGLE_APPLICATION_CREDENTIALS: /secrets/firebase-service-account.json
     volumes:
-      - ./data:/data
+      - data:/data
       - ./firebase-service-account.json:/secrets/firebase-service-account.json:ro
     # Put it behind your HTTPS reverse proxy.
     ports:
       - "127.0.0.1:8080:8080"
+
+# A named volume starts as the image's /data, which the app user owns (a host directory would be root's).
+volumes:
+  data:
