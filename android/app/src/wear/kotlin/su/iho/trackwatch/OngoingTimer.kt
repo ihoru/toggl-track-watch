@@ -1,6 +1,7 @@
 package su.iho.trackwatch
 
 import android.Manifest
+import android.app.AlarmManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -16,6 +17,7 @@ import androidx.core.content.ContextCompat
 import androidx.wear.ongoing.OngoingActivity
 import androidx.wear.ongoing.Status
 import su.iho.trackwatch.shared.ViewState
+import su.iho.trackwatch.shared.shortDuration
 
 /** Shows an Ongoing Activity (watch-face icon + notification with Stop) while a timer runs. */
 object OngoingTimer {
@@ -37,14 +39,18 @@ object OngoingTimer {
         val running = state.running
         if (running == null || !WatchSettings.showOngoing(context)) {
             manager.cancel(NOTIFICATION_ID)
+            cancelTick(context)
             shownKey = null
             return
         }
         val granted = Build.VERSION.SDK_INT < 33 ||
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
         if (!granted) return
+        val elapsed = System.currentTimeMillis() - running.start
+        val duration = shortDuration(elapsed)
+        scheduleTick(context, running.start, elapsed)
         val title = running.description.ifBlank { "(no description)" }
-        val key = "$title|${running.start}|${running.projectId}|${state.project(running.projectId)?.name}"
+        val key = "$title|${running.start}|${running.projectId}|${state.project(running.projectId)?.name}|$duration"
         if (shownKey == key) return
         // After the process restarts (e.g. woken by a phone update), keep a notification that is already right:
         // re-posting it makes the watch face indicator flash.
@@ -78,10 +84,11 @@ object OngoingTimer {
             .addAction(R.drawable.ic_stop, "Stop", stop)
             .addExtras(Bundle().apply { putString(EXTRA_KEY, key) })
 
-        // Just the description: a time doesn't fit in the watch-face strip. Without one, the project
-        // name; without that either, an empty status leaves only the icon. (A ticking stopwatch here
-        // also flickered.)
-        val label = running.description.ifBlank { project.orEmpty() }
+        // Coarse elapsed time and the description ("15m reading a book"); without a description, the
+        // project name. Whole minutes only: a ticking stopwatch here flickered and cost battery, so
+        // [MinuteTickReceiver] re-posts this once a minute instead.
+        val label = listOf(duration, running.description.ifBlank { project.orEmpty() })
+            .filter { it.isNotBlank() }.joinToString(" ")
         val status = Status.Builder()
             .addTemplate("#label#")
             .addPart("label", Status.TextPart(label))
@@ -93,6 +100,32 @@ object OngoingTimer {
             .build()
             .apply(context)
         manager.notify(NOTIFICATION_ID, builder.build())
+    }
+
+    private fun tickIntent(context: Context) = PendingIntent.getBroadcast(
+        context, 2, Intent(context, MinuteTickReceiver::class.java),
+        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+    )
+
+    /**
+     * Wakes us when the shown minute changes. Not a wakeup alarm: while the watch sleeps it fires with
+     * the next wake (e.g. the watch face's minute tick or raising the wrist), so it costs no extra wakeups.
+     */
+    private fun scheduleTick(context: Context, start: Long, elapsed: Long) {
+        val next = start + (elapsed.coerceAtLeast(0) / 60_000 + 1) * 60_000
+        context.getSystemService(AlarmManager::class.java)
+            .setWindow(AlarmManager.RTC, next, 5_000, tickIntent(context))
+    }
+
+    private fun cancelTick(context: Context) {
+        context.getSystemService(AlarmManager::class.java).cancel(tickIntent(context))
+    }
+}
+
+/** Refreshes the elapsed minutes in the Ongoing Activity. */
+class MinuteTickReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        OngoingTimer.update(context, WatchStore.get(context).view())
     }
 }
 

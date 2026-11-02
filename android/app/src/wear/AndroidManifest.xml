@@ -53,5 +53,8 @@
         <receiver
             android:name=".StopTimerReceiver"
             android:exported="false"/>
+        <receiver
+            android:name=".MinuteTickReceiver"
+            android:exported="false"/>
     </application>
 </manifest>
