@@ -14,6 +14,9 @@ object Paths {
     const val COMMAND_PREFIX = "/cmd/"
     const val REFRESH = "/refresh"
 
+    /** Payload of a [REFRESH] message sent by the watch's Refresh button (opening the app or tile sends none). */
+    val REFRESH_MANUAL = "manual".toByteArray()
+
     /** The watch's settings, kept on the phone so they survive reinstalling the watch app. */
     const val WATCH_SETTINGS = "/watch-settings"
 

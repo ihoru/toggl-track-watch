@@ -48,6 +48,7 @@ class MainActivity : FlutterActivity() {
                             quota?.let { (remaining, resetsAt) -> store.setQuota(remaining, resetsAt) }
                             Sync.schedulePeriodic(this@MainActivity)
                             Sync.now(this@MainActivity, refresh = true)
+                            Push.register(this@MainActivity)
                             CloudBackup.save(this@MainActivity)
                             result.success(stateJson(store.viewState()))
                         } catch (e: TogglException) {
@@ -58,6 +59,7 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 "signOut" -> {
+                    Push.signedOut(this)
                     Sync.cancelAll(this)
                     store.signOut()
                     CloudBackup.save(this)
@@ -70,6 +72,11 @@ class MainActivity : FlutterActivity() {
                     result.success(null)
                 }
                 "restoreFromCloud" -> scope.launch { result.success(restoreFromCloud()) }
+                "setPush" -> {
+                    Push.configure(this, call.argument<String>("url").orEmpty(), call.argument<String>("secret").orEmpty())
+                    CloudBackup.save(this)
+                    result.success(stateJson(store.viewState()))
+                }
                 "syncNow" -> {
                     Sync.now(this, refresh = true)
                     result.success(null)
@@ -122,6 +129,7 @@ class MainActivity : FlutterActivity() {
         if (store.token != null) {
             Sync.schedulePeriodic(this)
             Sync.now(this, refresh = true)
+            Push.ensureRegistered(this)
         }
     }
 
@@ -144,8 +152,8 @@ class MainActivity : FlutterActivity() {
             if (packageManager.resolveActivity(intent, 0) != null) {
                 try {
                     startActivity(intent)
-                    // Pick up the entry the Toggl app creates, so the watch shows it.
-                    Sync.refreshSoon(this, 10_000)
+                    // Pick up the entry the Toggl app creates, so the watch shows it (live updates bring it on their own).
+                    if (!Push.active(this)) Sync.refreshSoon(this, 10_000)
                     return "toggl"
                 } catch (e: ActivityNotFoundException) {
                     // Fall through to our own API.
@@ -166,6 +174,7 @@ class MainActivity : FlutterActivity() {
         if (store.favorites.isEmpty() && backup.favorites.isNotEmpty()) store.setFavorites(backup.favorites)
         if (!uiPrefs.contains("compact")) uiPrefs.edit().putBoolean("compact", backup.compact).apply()
         if (store.watchSettings == null) backup.watchSettings?.let(store::setWatchSettings)
+        Push.restore(this, backup.pushUrl, backup.pushSecret)
         val token = backup.token
         if (store.token == null && token != null) {
             try {
@@ -173,6 +182,7 @@ class MainActivity : FlutterActivity() {
                 store.signIn(token, account)
                 Sync.schedulePeriodic(this)
                 Sync.now(this, refresh = true)
+                Push.register(this)
             } catch (e: Exception) {
                 // Token revoked or no network: the user enters it again.
             }
@@ -187,6 +197,7 @@ class MainActivity : FlutterActivity() {
             .put("account", account?.let {
                 JSONObject().put("name", it.name).put("email", it.email).put("workspace", it.workspaceName)
             } ?: JSONObject.NULL)
+            .put("push", Push.statusJson(this))
             .toString()
     }
 

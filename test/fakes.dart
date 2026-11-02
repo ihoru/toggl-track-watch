@@ -193,6 +193,19 @@ class FakePhoneBridge implements PhoneBridge {
   @override
   Future<void> syncNow() async {}
 
+  (String, String)? pushSettings;
+
+  @override
+  Future<PhoneSnapshot> setPush(String url, String secret) async {
+    pushSettings = (url, secret);
+    snapshot = PhoneSnapshot(
+      snapshot.state,
+      snapshot.account,
+      push: PushStatus(available: true, url: url, hasSecret: secret.isNotEmpty || snapshot.push.hasSecret),
+    );
+    return snapshot;
+  }
+
   @override
   Future<bool> watchConnected() async => true;
 

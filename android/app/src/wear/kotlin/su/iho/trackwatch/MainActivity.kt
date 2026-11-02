@@ -115,7 +115,7 @@ class MainActivity : FlutterActivity() {
                     result.success("${info.versionName} (${info.longVersionCode / 10})")
                 }
                 "refresh" -> {
-                    store.requestRefresh()
+                    store.requestRefresh(manual = true)
                     result.success(null)
                 }
                 "textInput" -> {

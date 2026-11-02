@@ -82,6 +82,21 @@ jobs:
             } >> "$GITHUB_ENV"
           fi
 
+      # Live updates (Firebase Cloud Messaging) need the phone app's google-services.json, kept in the
+      # GOOGLE_SERVICES_JSON secret (see server/README.md). Without it the phone app is built without them.
+      - name: Firebase config
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/src/phone/google-services.json
+            python3 -c "import json; json.load(open('android/app/src/phone/google-services.json'))" \
+              || { echo "::error::GOOGLE_SERVICES_JSON is not valid JSON"; exit 1; }
+            echo "Firebase config written: live updates are built in."
+          else
+            echo "No GOOGLE_SERVICES_JSON secret; building without live updates."
+          fi
+
       # Phone: one APK per CPU type; real phones need arm64, x86_64 is for the emulator smoke test.
       # Watch: one APK with 32- and 64-bit ARM (as released; many watches run a 32-bit userspace)
       # plus x86_64, so the smoke test installs the same kind of APK users get.
@@ -143,6 +158,18 @@ jobs:
           name: smoke-test-apks
           path: smoke/*.apk
           retention-days: 3
+
+  # The live-updates server (server/).
+  server:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e  # v10.3.2
+      - run: uv sync --locked
+      - run: uv run pytest -q
 
   # Launches each APK in an emulator and captures crashes, logs and a screenshot.
   smoke-test:

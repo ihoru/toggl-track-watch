@@ -67,6 +67,50 @@ void main() {
     expect(find.text('Remove token?'), findsOneWidget);
   });
 
+  testWidgets('live updates are set up from the sync details', (tester) async {
+    final bridge = FakePhoneBridge(
+      PhoneSnapshot(
+        sampleState(),
+        const Account(name: 'Ihor', email: 'e@x', workspace: 'WS'),
+        push: const PushStatus(available: true),
+      ),
+    );
+    await tester.pumpWidget(PhoneApp(bridge: bridge));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Watch ✓'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Live updates off'), findsOneWidget);
+
+    await tester.tap(find.text('Set up'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.widgetWithText(TextField, 'Server URL'), 'http://push.example.com');
+    await tester.enterText(find.widgetWithText(TextField, 'App secret'), 's3cret');
+    await tester.pump();
+    // Toggl and FCM need HTTPS.
+    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Save')).onPressed, isNull);
+    await tester.enterText(find.widgetWithText(TextField, 'Server URL'), ' https://push.example.com ');
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(bridge.pushSettings, ('https://push.example.com', 's3cret'));
+    expect(find.text('Live updates: connecting…'), findsOneWidget);
+
+    await tester.tap(find.text('Edit'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Turn off'));
+    await tester.pumpAndSettle();
+    expect(bridge.pushSettings, ('', ''));
+  });
+
+  testWidgets('live updates are hidden in builds without Firebase', (tester) async {
+    final bridge = FakePhoneBridge(signedIn());
+    await tester.pumpWidget(PhoneApp(bridge: bridge));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Watch ✓'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Live updates'), findsNothing);
+  });
+
   testWidgets('swipe left asks before deleting a favorite', (tester) async {
     final bridge = FakePhoneBridge(signedIn());
     await tester.pumpWidget(PhoneApp(bridge: bridge));

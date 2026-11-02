@@ -15,7 +15,7 @@ import su.iho.trackwatch.shared.objects
 import su.iho.trackwatch.shared.toMap
 
 /**
- * Keeps the Toggl token, favorites, compact-view setting and the watch's settings in Google Play
+ * Keeps the Toggl token, favorites, compact-view setting, live-updates server settings and the watch's settings in Google Play
  * services Block Store, so they come back after reinstalling the app (and on a new phone when
  * Google backup is on).
  * Stored end-to-end encrypted in the cloud when the device supports it (screen lock set),
@@ -26,7 +26,14 @@ object CloudBackup {
     private const val MAX_CHUNKS = 8
     private const val CHUNK_SIZE = 3800 // Block Store allows 4 KB per entry.
 
-    data class Backup(val token: String?, val favorites: List<Favorite>, val compact: Boolean, val watchSettings: Map<String, Any>?)
+    data class Backup(
+        val token: String?,
+        val favorites: List<Favorite>,
+        val compact: Boolean,
+        val watchSettings: Map<String, Any>?,
+        val pushUrl: String? = null,
+        val pushSecret: String? = null,
+    )
 
     /** Saves the current settings. Fire-and-forget; failures only mean there is no backup. */
     fun save(context: Context) {
@@ -37,6 +44,8 @@ object CloudBackup {
             .put("favorites", JSONArray(store.favorites.map { it.toJson() }))
             .put("compact", app.getSharedPreferences("ui", Context.MODE_PRIVATE).getBoolean("compact", false))
             .put("watchSettings", store.watchSettings?.let { JSONObject(it) } ?: JSONObject.NULL)
+            .put("pushUrl", Push.url(app) ?: JSONObject.NULL)
+            .put("pushSecret", Push.secret(app) ?: JSONObject.NULL)
         val chunks = gzip(json.toString()).toList().chunked(CHUNK_SIZE).map { it.toByteArray() }
         if (chunks.size > MAX_CHUNKS) return
 
@@ -65,6 +74,8 @@ object CloudBackup {
             favorites = json.optJSONArray("favorites").objects().map(Favorite::fromJson),
             compact = json.optBoolean("compact", false),
             watchSettings = json.optJSONObject("watchSettings")?.toMap(),
+            pushUrl = if (json.isNull("pushUrl")) null else json.optString("pushUrl").ifEmpty { null },
+            pushSecret = if (json.isNull("pushSecret")) null else json.optString("pushSecret").ifEmpty { null },
         )
     }
 }

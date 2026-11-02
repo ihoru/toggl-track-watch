@@ -116,13 +116,16 @@ class WatchStore private constructor(private val context: Context) {
         pendingFile.writeText(JSONArray(list.map { it.toJson() }).toString())
     }
 
-    /** Asks the phone to refresh from Toggl. Also updates [phoneReachable]. */
-    fun requestRefresh() {
+    /**
+     * Asks the phone to refresh from Toggl. Also updates [phoneReachable]. [manual] is the Refresh
+     * button: with live updates the phone only asks Toggl then, and otherwise just re-sends its state.
+     */
+    fun requestRefresh(manual: Boolean = false) {
         Wearable.getNodeClient(context).connectedNodes.addOnCompleteListener { task ->
             val nodes = if (task.isSuccessful) task.result.orEmpty() else emptyList()
             setPhoneReachable(nodes.isNotEmpty())
             val messages = Wearable.getMessageClient(context)
-            nodes.forEach { messages.sendMessage(it.id, Paths.REFRESH, ByteArray(0)) }
+            nodes.forEach { messages.sendMessage(it.id, Paths.REFRESH, if (manual) Paths.REFRESH_MANUAL else ByteArray(0)) }
         }
     }
 
