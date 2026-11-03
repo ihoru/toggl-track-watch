@@ -59,6 +59,20 @@ class MainActivity : FlutterActivity() {
         ) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
         }
+        // Not when the activity is recreated: the timer was started the first time.
+        if (savedInstanceState == null) startFromTile(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        startFromTile(intent)
+    }
+
+    /** A start button on the tile opened the app: start that timer. */
+    private fun startFromTile(intent: Intent?) {
+        val slot = intent?.getStringExtra(TimerTileService.EXTRA_START) ?: return
+        intent.removeExtra(TimerTileService.EXTRA_START)
+        TimerTileService.start(store, slot)
     }
 
     override fun onResume() {

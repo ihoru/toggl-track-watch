@@ -26,15 +26,17 @@ import su.iho.trackwatch.shared.ViewState
 import java.text.DateFormat
 import java.util.Date
 
-/** Tile: the running timer with an Open button, and favorites as one-tap start buttons. */
+/**
+ * Tile: the running timer with an Open button, and favorites as one-tap start buttons.
+ * A start button opens the app, which starts the timer: the system lets the app's screen go to
+ * ambient mode, while a tile stays lit.
+ */
 class TimerTileService : TileService() {
     override fun onTileRequest(requestParams: RequestBuilders.TileRequest): ListenableFuture<TileBuilders.Tile> {
         val store = WatchStore.get(this)
+        // Tiles rendered by older versions start timers with a LoadAction.
         val clicked = requestParams.currentState.lastClickableId
-        when {
-            clicked.startsWith(ID_FAVORITE) -> clicked.removePrefix(ID_FAVORITE).toIntOrNull()?.let(store::startFavorite)
-            clicked.startsWith(ID_FREQUENT) -> clicked.removePrefix(ID_FREQUENT).toIntOrNull()?.let(store::startFrequent)
-        }
+        start(store, clicked)
         val tile = TileBuilders.Tile.Builder()
             .setResourcesVersion(RESOURCES_VERSION)
             // Nothing on the tile changes with time; WatchStore asks for an update when the state does.
@@ -56,6 +58,17 @@ class TimerTileService : TileService() {
     companion object {
         const val ID_FAVORITE = "fav:"
         const val ID_FREQUENT = "freq:"
+
+        /** Extra for [MainActivity]: the timer to start, as [ID_FAVORITE] or [ID_FREQUENT] plus its index. */
+        const val EXTRA_START = "su.iho.trackwatch.start"
+
+        /** Starts the timer named by an [EXTRA_START] value. */
+        fun start(store: WatchStore, slot: String) {
+            when {
+                slot.startsWith(ID_FAVORITE) -> slot.removePrefix(ID_FAVORITE).toIntOrNull()?.let(store::startFavorite)
+                slot.startsWith(ID_FREQUENT) -> slot.removePrefix(ID_FREQUENT).toIntOrNull()?.let(store::startFrequent)
+            }
+        }
         private const val RESOURCES_VERSION = "1"
     }
 }
@@ -126,7 +139,7 @@ private class TileLayout(private val context: Context, private val device: Devic
             .setVerticalAlignment(LayoutElementBuilders.VERTICAL_ALIGN_CENTER)
             .setModifiers(
                 ModifiersBuilders.Modifiers.Builder()
-                    .setClickable(loadClickable(slot.clickId))
+                    .setClickable(startClickable(slot.clickId))
                     .setBackground(
                         ModifiersBuilders.Background.Builder()
                             .setColor(argb(background))
@@ -150,19 +163,23 @@ private class TileLayout(private val context: Context, private val device: Devic
         .setOverflow(LayoutElementBuilders.TEXT_OVERFLOW_ELLIPSIZE_END)
         .build()
 
-    private fun loadClickable(id: String) = ModifiersBuilders.Clickable.Builder()
-        .setId(id)
-        .setOnClick(ActionBuilders.LoadAction.Builder().build())
-        .build()
+    /** Opens the app, which starts the timer named by [id]. */
+    private fun startClickable(id: String) = launchClickable(id) {
+        addKeyToExtraMapping(TimerTileService.EXTRA_START, ActionBuilders.AndroidStringExtra.Builder().setValue(id).build())
+    }
 
-    private fun launchClickable() = ModifiersBuilders.Clickable.Builder()
-        .setId("open")
+    private fun launchClickable(
+        id: String = "open",
+        extras: ActionBuilders.AndroidActivity.Builder.() -> Unit = {},
+    ) = ModifiersBuilders.Clickable.Builder()
+        .setId(id)
         .setOnClick(
             ActionBuilders.LaunchAction.Builder()
                 .setAndroidActivity(
                     ActionBuilders.AndroidActivity.Builder()
                         .setPackageName(context.packageName)
                         .setClassName(MainActivity::class.java.name)
+                        .apply(extras)
                         .build()
                 )
                 .build()
