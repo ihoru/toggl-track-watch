@@ -11,14 +11,21 @@ Toggl Track ──webhook──► this server ──FCM data message──► p
   updated / deleted)        signature)        Messaging)             change is new to it)
 ```
 
-* The server never sees your Toggl API token. It keeps only the webhook secret, an app secret
-  and the phones' FCM tokens (`data/devices.json`).
+* Anyone with the app can use it: in the phone app, **Live updates → Turn on** is all it takes. The
+  phone registers with the server, gets its own webhook URL and secret, and creates the Toggl
+  webhook subscription itself with the user's API token. Toggl has no OAuth for other apps, and the
+  phone already has the token, so there is no website to sign in on.
+* The server never sees anyone's Toggl API token. It keeps, per phone, the registration (FCM token,
+  Toggl user and workspace id, phone model, webhook secret) in `data/registrations.json`. Time
+  entries only pass through.
 * The phone skips the Toggl call when the event is its own change coming back, and applies
   deletions directly. A change made elsewhere costs one or two Toggl requests.
 * The app works without the server exactly as before. Builds without a Firebase configuration
   (forks, Dependabot pull requests) don't show live updates at all.
 
-Setup takes four parts, in this order: Firebase, the server, the Toggl subscription, the phone app.
+A server can only push to app builds made with its own Firebase project, so the Play Store app uses
+the server built into it (`LIVE_UPDATES_URL` at build time, `https://trackwatch.iho.su` by default).
+Running your own makes sense with your own build. Setup: Firebase, the server, the app build.
 
 ## 1. Firebase
 
@@ -40,24 +47,19 @@ Setup takes four parts, in this order: Firebase, the server, the Toggl subscript
 
 ## 2. The server
 
-Needs a public HTTPS URL, e.g. `https://push.example.com` (the phone app only accepts `https://`).
+Needs a public HTTPS URL, e.g. `https://push.example.com` (Toggl and the phone app only accept
+`https://`). Copy the service account file next to `compose.yaml` as
+`firebase-service-account.json`, then:
 
 ```sh
 cd server
-cp .env.example .env
-python3 -c "import secrets; print(secrets.token_urlsafe(32))"   # or: uv run trackwatch-push secret
-```
-
-Put that random string in `.env` as `TRACKWATCH_APP_SECRET` (you'll enter it in the phone app too).
-`TOGGL_WEBHOOK_SECRET` comes from step 3. Copy the service account file next to `compose.yaml`
-as `firebase-service-account.json`, then:
-
-```sh
 docker compose up -d --build
 docker compose logs -f
 ```
 
-The container listens on `127.0.0.1:8081` (`TRACKWATCH_PORT` in `.env` changes it). Put it behind your HTTPS reverse proxy, for nginx:
+There are no secrets to set. `.env` is optional (see `.env.example`): limits and the host port. The
+container listens on `127.0.0.1:8081` (`TRACKWATCH_PORT` changes it). Put it behind your HTTPS
+reverse proxy, for nginx:
 
 ```nginx
 server {
@@ -73,71 +75,70 @@ server {
 }
 ```
 
+`X-Forwarded-For` matters: the per-IP registration limit uses the address the proxy saw.
+
 Without Docker: `uv sync --no-dev`, then run `uv run trackwatch-push serve` with the variables
 below in the environment (e.g. from a systemd unit).
 
 | Variable | |
 |---|---|
-| `TOGGL_WEBHOOK_SECRET` | Signs Toggl's calls; printed by `toggl subscribe`. |
-| `TRACKWATCH_APP_SECRET` | Phones must send it to register. |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Path to the Firebase service account JSON (set by `compose.yaml`). |
 | `FIREBASE_PROJECT_ID` | Optional; read from the service account file. |
-| `TRACKWATCH_DATA_DIR` | Where `devices.json` is kept (`/data` in Docker, on the `data` volume; `./data` otherwise). |
+| `TRACKWATCH_MAX_REGISTRATIONS` | Phones in all; default 1000. New ones get 503 beyond it. |
+| `TRACKWATCH_REGISTRATIONS_PER_IP_HOUR` | New registrations per IP address per hour; default 10. |
+| `TRACKWATCH_DATA_DIR` | Where `registrations.json` is kept (`/data` in Docker, on the `data` volume; `./data` otherwise). |
 | `HOST`, `PORT` | Default `0.0.0.0:8080`. |
 
-Endpoints: `POST /toggl/webhook` (Toggl), `POST`/`DELETE /devices` (the phone app, with
-`Authorization: Bearer <TRACKWATCH_APP_SECRET>`), `GET /health` (also shows when the last Toggl
-event arrived).
+Endpoints:
 
-## 3. The Toggl webhook subscription
+| | |
+|---|---|
+| `POST /registrations` | A phone registers (FCM token, Toggl user id). Answers its id, secret and webhook path. |
+| `GET`/`PUT`/`DELETE /registrations/<id>` | Status, new FCM token, removal; `Authorization: Bearer <secret>`. |
+| `POST /toggl/webhook/<id>` | Toggl's events for that phone, signed with its secret. Unknown ids get 410. |
+| `GET /health` | Liveness check; also says when the last Toggl event arrived. |
 
-Run these on your own computer (they need your Toggl API token, from
-[your Toggl profile](https://track.toggl.com/profile); the server doesn't):
+Why registering needs no password: the server can only push to the app it was built for, and a
+phone only gets events from the Toggl subscription its own token created; for a workspace admin's
+subscription, only the admin's own entries are forwarded. The server checks each FCM token with
+Firebase (a validate-only send) before storing it, so a registration needs a real install of the
+app. Registrations Toggl never validates expire after an hour.
 
-```sh
-cd server
-uv sync
-export TOGGL_API_TOKEN=…            # or leave it unset to be asked
-uv run trackwatch-push toggl subscribe https://push.example.com/toggl/webhook
-```
+`uv run trackwatch-push registrations` (in the container: `docker compose exec trackwatch-push
+trackwatch-push registrations`) lists the phones: user id, model, validated, last event.
 
-It creates (or updates) a subscription named "Track Watch live updates" in your default workspace
-(`--workspace <id>` for another one) for `time_entry` created, updated and deleted events, and
-prints `TOGGL_WEBHOOK_SECRET=…`. Put that line in the server's `.env`, restart it
-(`docker compose up -d`), then validate the URL:
+## 3. The app build
 
-```sh
-uv run trackwatch-push toggl ping    # Toggl sends a ping; the server answers its validation code
-uv run trackwatch-push toggl list    # validated_at is now set and enabled is true
-```
+Build the phone app with `GOOGLE_SERVICES_JSON` (step 1) and, for your own server,
+`LIVE_UPDATES_URL=https://push.example.com` in the environment (in CI: a repository **variable**
+`LIVE_UPDATES_URL`, which the Build and Release workflows pass on). Users can also enter a server in **Live updates → Settings**.
 
-Other commands: `toggl events` (recent deliveries and their errors), `toggl enable` (Toggl turns
-a subscription off after repeated delivery failures, e.g. while the server was down), `toggl delete`.
+In the phone app, tap the sync row to open the details, then **Live updates → Turn on**. The line
+turns to **Live updates on** once Toggl validated the webhook, usually within seconds. Stop a timer
+on [track.toggl.com](https://track.toggl.com) and the watch should show it stopped within a few
+seconds; the server log shows `time_entry updated -> <id>…`.
 
-Toggl's limits are per workspace: the Free plan allows 1 webhook with up to 3 event filters, which
-is exactly what this uses; Starter allows 2 webhooks with 6, Premium 3 with 12. Docs:
+The phone's subscription is named "Track Watch live updates (<Toggl user id>)" in the user's
+default workspace; a phone only ever changes its own user's subscription.
+Toggl's limits are per workspace: the Free plan allows 1 webhook (with up to 3 event filters, which
+is exactly what this uses), Starter 2, Premium 3. So on the Free plan one phone per account and
+workspace gets live updates: turning them on on a second phone moves the subscription there, and
+the first phone says so and goes back to polling. Docs:
 [Toggl Webhooks API](https://engineering.toggl.com/docs/webhooks_start).
 
-## 4. The phone app
-
-Install a build made with `GOOGLE_SERVICES_JSON` (any CI or release build after the secret is
-set). In the phone app, tap the sync row to open the details, then **Live updates → Set up**:
-
-* **Server URL:** `https://push.example.com` (without `/devices`)
-* **App secret:** the `TRACKWATCH_APP_SECRET` value
-
-The line turns to **Live updates on** once the server accepted the phone. Stop a timer on
-[track.toggl.com](https://track.toggl.com) and the watch should show it stopped within a few
-seconds; the server log shows `time_entry updated (user …) -> 1 device(s)`.
+For troubleshooting, `uv run trackwatch-push toggl list|events|delete` shows your own subscriptions
+(it asks for your Toggl API token; run it on your computer).
 
 ## How the phone behaves with live updates on
 
 * Opening the watch app or tile re-sends the phone's state without asking Toggl. The watch's
   **Refresh** button and the phone's **Sync now** still ask Toggl.
-* Background polling drops from every 15 minutes to once a day (that run also re-ranks the
-  Recent and Frequent lists, and re-registers with the server once a week).
-* If registering fails (wrong secret, server down), the phone shows the error and polls every
-  15 minutes until it works again.
+* Background polling drops from every 15 minutes to once a day. That run also re-ranks the
+  Recent and Frequent lists and checks the registration and the Toggl subscription: Toggl turns a
+  subscription off after repeated delivery failures (e.g. while the server was down), and the phone
+  turns it back on.
+* If setting up fails (server down, Toggl's webhook limit reached), the phone shows the error and
+  polls every 15 minutes until it works again.
 * While the phone is offline, Firebase keeps the messages (up to a day here) and delivers them
   when it's back.
 * High-priority messages wake the phone from Doze. Android may treat them as normal priority if

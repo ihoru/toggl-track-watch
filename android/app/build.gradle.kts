@@ -41,6 +41,11 @@ val firebaseResources: Map<String, String> = file("src/phone/google-services.jso
     )
 } ?: emptyMap()
 
+// The live-updates server the phone app uses unless the user enters another one. It can only push
+// to builds made with its Firebase project, so forks set LIVE_UPDATES_URL (a repository variable in
+// CI) to their own server.
+val liveUpdatesUrl: String = System.getenv("LIVE_UPDATES_URL")?.trim()?.ifEmpty { null } ?: "https://trackwatch.iho.su"
+
 android {
     namespace = "su.iho.trackwatch"
     compileSdk = flutter.compileSdkVersion
@@ -72,6 +77,7 @@ android {
             dimension = "device"
             versionCode = flutter.versionCode * 10
             firebaseResources.forEach { (name, value) -> resValue("string", name, value) }
+            resValue("string", "live_updates_default_url", liveUpdatesUrl)
         }
         create("wear") {
             dimension = "device"

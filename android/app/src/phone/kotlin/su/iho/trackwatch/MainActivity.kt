@@ -59,7 +59,7 @@ class MainActivity : FlutterActivity() {
                     }
                 }
                 "signOut" -> {
-                    Push.signedOut(this)
+                    Push.signedOut(this, store.token)
                     Sync.cancelAll(this)
                     store.signOut()
                     CloudBackup.save(this)
@@ -73,7 +73,7 @@ class MainActivity : FlutterActivity() {
                 }
                 "restoreFromCloud" -> scope.launch { result.success(restoreFromCloud()) }
                 "setPush" -> {
-                    Push.configure(this, call.argument<String>("url").orEmpty(), call.argument<String>("secret").orEmpty())
+                    Push.configure(this, call.argument<Boolean>("enabled") == true, call.argument<String>("url").orEmpty())
                     CloudBackup.save(this)
                     result.success(stateJson(store.viewState()))
                 }
@@ -174,7 +174,7 @@ class MainActivity : FlutterActivity() {
         if (store.favorites.isEmpty() && backup.favorites.isNotEmpty()) store.setFavorites(backup.favorites)
         if (!uiPrefs.contains("compact")) uiPrefs.edit().putBoolean("compact", backup.compact).apply()
         if (store.watchSettings == null) backup.watchSettings?.let(store::setWatchSettings)
-        Push.restore(this, backup.pushUrl, backup.pushSecret)
+        Push.restore(this, backup.pushEnabled, backup.pushUrl)
         val token = backup.token
         if (store.token == null && token != null) {
             try {

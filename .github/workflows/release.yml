@@ -138,7 +138,10 @@ jobs:
       - name: Firebase config
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          # A fork's own live-updates server (repository variable); the build defaults to trackwatch.iho.su.
+          LIVE_UPDATES_URL: ${{ vars.LIVE_UPDATES_URL }}
         run: |
+          if [ -n "$LIVE_UPDATES_URL" ]; then echo "LIVE_UPDATES_URL=$LIVE_UPDATES_URL" >> "$GITHUB_ENV"; fi
           if [ -n "$GOOGLE_SERVICES_JSON" ]; then
             printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/src/phone/google-services.json
             python3 -c "import json; json.load(open('android/app/src/phone/google-services.json'))" \

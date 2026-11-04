@@ -1,12 +1,12 @@
-"""Command line: `serve` runs the server; `toggl …` manages the Toggl webhook subscription.
+"""Command line.
 
-    trackwatch-push serve
-    trackwatch-push toggl subscribe https://push.example.com/toggl/webhook
-    trackwatch-push toggl list | ping | events | enable | delete
-    trackwatch-push secret
+    trackwatch-push serve             run the server
+    trackwatch-push registrations     list the registered phones
+    trackwatch-push toggl list | events | delete   look at your own Toggl webhook subscriptions
 
-The `toggl` commands read your Toggl API token from TOGGL_API_TOKEN (or ask for it). They run on
-your own computer; the server itself never needs the token.
+The phone app creates and repairs its Toggl webhook subscription itself, so none of this is
+needed for setup. The `toggl` commands read your Toggl API token from TOGGL_API_TOKEN (or ask for
+it) and are for troubleshooting from your own computer; the server never needs the token.
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ import getpass
 import json
 import logging
 import os
-import secrets
+import time
 import sys
 import urllib.error
 import urllib.request
@@ -27,11 +27,6 @@ from pathlib import Path
 TOGGL_API = "https://api.track.toggl.com/api/v9"
 WEBHOOKS_API = "https://api.track.toggl.com/webhooks/api/v1"
 USER_AGENT = "trackwatch-push (https://github.com/ihoru/toggl-track-watch)"
-EVENT_FILTERS = [
-    {"entity": "time_entry", "action": "created"},
-    {"entity": "time_entry", "action": "updated"},
-    {"entity": "time_entry", "action": "deleted"},
-]
 DESCRIPTION = "Track Watch live updates"
 
 
@@ -48,12 +43,14 @@ def serve(args: argparse.Namespace) -> None:
 
     from .app import Config, make_app
     from .fcm import FcmSender
-    from .store import DeviceStore
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-    config = Config(webhook_secret=_env("TOGGL_WEBHOOK_SECRET"), app_secret=_env("TRACKWATCH_APP_SECRET"))
+    config = Config(
+        max_registrations=int(os.environ.get("TRACKWATCH_MAX_REGISTRATIONS") or 1000),
+        registrations_per_ip_hour=int(os.environ.get("TRACKWATCH_REGISTRATIONS_PER_IP_HOUR") or 10),
+    )
     credentials = _env("GOOGLE_APPLICATION_CREDENTIALS")
-    store = DeviceStore(Path(os.environ.get("TRACKWATCH_DATA_DIR", "data")) / "devices.json")
+    store = _store()
 
     async def build() -> web.Application:
         session = aiohttp.ClientSession()
@@ -64,10 +61,28 @@ def serve(args: argparse.Namespace) -> None:
             await session.close()
 
         app.on_cleanup.append(close)
-        logging.getLogger(__name__).info("Sending to Firebase project %s; %d device(s) registered", sender.project_id, len(store.all()))
+        logging.getLogger(__name__).info("Sending to Firebase project %s; %d registration(s)", sender.project_id, len(store))
         return app
 
     web.run_app(build(), host=args.host, port=args.port, access_log=None)
+
+
+def _store():
+    from .store import RegistrationStore
+
+    return RegistrationStore(Path(os.environ.get("TRACKWATCH_DATA_DIR", "data")) / "registrations.json")
+
+
+def _when(ts: float | None) -> str:
+    return time.strftime("%Y-%m-%d %H:%M", time.localtime(ts)) if ts else "never"
+
+
+def registrations(_: argparse.Namespace) -> None:
+    items = sorted(_store().all(), key=lambda r: r.created_at)
+    for r in items:
+        state = "validated" if r.validated_at else "NOT validated"
+        print(f"{r.id[:8]}  user {r.user_id}  {r.name or '-'}  {state}  last event {_when(r.last_event_at)}")
+    print(f"{len(items)} registration(s), {len({r.user_id for r in items})} user(s)")
 
 
 def _toggl(method: str, url: str, token: str, body: dict | None = None):
@@ -90,38 +105,19 @@ def toggl_command(args: argparse.Namespace) -> None:
     workspace = args.workspace or _toggl("GET", f"{TOGGL_API}/me", token)["default_workspace_id"]
     base = f"{WEBHOOKS_API}/subscriptions/{workspace}"
     subscriptions = _toggl("GET", base, token) or []
-    ours = [s for s in subscriptions if s.get("description") == DESCRIPTION]
+    ours = [s for s in subscriptions if str(s.get("description") or "").startswith(DESCRIPTION)]
 
     def show(items) -> None:
         print(json.dumps(items, indent=2))
 
-    if args.action == "subscribe":
-        if not args.url:
-            sys.exit("Pass the webhook URL, e.g. https://push.example.com/toggl/webhook")
-        secret = os.environ.get("TOGGL_WEBHOOK_SECRET") or secrets.token_urlsafe(32)
-        body = {"url_callback": args.url, "event_filters": EVENT_FILTERS, "enabled": True, "description": DESCRIPTION, "secret": secret}
-        if ours:
-            result = _toggl("PUT", f"{base}/{ours[0]['subscription_id']}", token, body)
-        else:
-            result = _toggl("POST", base, token, body)
-        print(f"Subscription {result['subscription_id']} in workspace {workspace} -> {result['url_callback']}")
-        print(f"\nTOGGL_WEBHOOK_SECRET={secret}\n")
-        print("Put that line in the server's environment and start it, then run `toggl ping` to validate the URL.")
-        return
     if args.action == "list":
         show(subscriptions)
         return
     if not ours:
-        sys.exit(f"No '{DESCRIPTION}' subscription in workspace {workspace}; run `toggl subscribe <url>` first.")
+        sys.exit(f"No '{DESCRIPTION}' subscription in workspace {workspace}; the phone app creates it.")
     sub_id = ours[0]["subscription_id"]
-    if args.action == "ping":
-        show(_toggl("POST", f"{WEBHOOKS_API}/ping/{workspace}/{sub_id}", token))
-        print("Toggl sent a ping. `toggl list` shows validated_at once the server answered it.")
-    elif args.action == "events":
+    if args.action == "events":
         show(_toggl("GET", f"{base}/{sub_id}/events", token))
-    elif args.action == "enable":
-        # Toggl disables a subscription after repeated delivery failures; this turns it back on.
-        show(_toggl("PATCH", f"{base}/{sub_id}", token, {"enabled": True}))
     elif args.action == "delete":
         _toggl("DELETE", f"{base}/{sub_id}", token)
         print(f"Deleted subscription {sub_id}")
@@ -136,14 +132,13 @@ def main() -> None:
     p.add_argument("--port", type=int, default=int(os.environ.get("PORT", "8080")))
     p.set_defaults(func=serve)
 
-    p = sub.add_parser("toggl", help="manage the Toggl webhook subscription")
-    p.add_argument("action", choices=["subscribe", "list", "ping", "events", "enable", "delete"])
-    p.add_argument("url", nargs="?", help="webhook URL (for subscribe)")
+    p = sub.add_parser("registrations", help="list the registered phones")
+    p.set_defaults(func=registrations)
+
+    p = sub.add_parser("toggl", help="look at your own Toggl webhook subscriptions")
+    p.add_argument("action", choices=["list", "events", "delete"])
     p.add_argument("--workspace", type=int, help="workspace id (default: your default workspace)")
     p.set_defaults(func=toggl_command)
-
-    p = sub.add_parser("secret", help="print a random secret for TRACKWATCH_APP_SECRET")
-    p.set_defaults(func=lambda _: print(secrets.token_urlsafe(32)))
 
     args = parser.parse_args(sys.argv[1:] or ["serve"])
     if args.command is None:

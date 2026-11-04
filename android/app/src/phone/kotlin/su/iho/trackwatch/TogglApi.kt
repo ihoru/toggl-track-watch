@@ -88,7 +88,29 @@ class TogglApi(private val token: String, private val onQuota: (remaining: Int, 
         call("DELETE", "/workspaces/$wid/time_entries/$id")
     }
 
-    private fun call(method: String, path: String, body: JSONObject? = null): String {
+    // Webhooks API (https://engineering.toggl.com/docs/webhooks_start), for live updates.
+    fun webhookSubscriptions(wid: Long): List<JSONObject> =
+        JSONArray(call("GET", "/subscriptions/$wid", base = WEBHOOKS).takeIf { it.trimStart().startsWith("[") } ?: "[]").objects()
+
+    fun createWebhook(wid: Long, body: JSONObject): JSONObject =
+        JSONObject(call("POST", "/subscriptions/$wid", body, base = WEBHOOKS))
+
+    fun updateWebhook(wid: Long, id: Long, body: JSONObject): JSONObject =
+        JSONObject(call("PUT", "/subscriptions/$wid/$id", body, base = WEBHOOKS))
+
+    fun enableWebhook(wid: Long, id: Long): JSONObject =
+        JSONObject(call("PATCH", "/subscriptions/$wid/$id", JSONObject().put("enabled", true), base = WEBHOOKS))
+
+    /** Toggl sends a ping; while the subscription isn't validated, answering it validates it. */
+    fun pingWebhook(wid: Long, id: Long) {
+        call("POST", "/ping/$wid/$id", base = WEBHOOKS)
+    }
+
+    fun deleteWebhook(wid: Long, id: Long) {
+        call("DELETE", "/subscriptions/$wid/$id", base = WEBHOOKS)
+    }
+
+    private fun call(method: String, path: String, body: JSONObject? = null, base: String = this.base): String {
         val requestBody = when {
             body != null -> body.toString().toRequestBody(JSON)
             method == "PATCH" || method == "POST" || method == "PUT" -> "".toRequestBody(JSON)
@@ -117,6 +139,7 @@ class TogglApi(private val token: String, private val onQuota: (remaining: Int, 
 
     companion object {
         const val DEFAULT_QUOTA_WAIT_SECONDS = 15 * 60L
+        private const val WEBHOOKS = "https://api.track.toggl.com/webhooks/api/v1"
         private val JSON = "application/json; charset=utf-8".toMediaType()
         private val client = OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
