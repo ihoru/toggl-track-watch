@@ -314,28 +314,28 @@ class PushRegisterWorker(context: Context, params: WorkerParameters) : Coroutine
                 .put("name", "${Build.MANUFACTURER} ${Build.MODEL}")
 
             var reg = Push.registration(context)?.takeIf { it.server == server }
+            // The subscription this phone had before the server lost its registration is still its own.
+            val previousCallback = reg?.let { it.server + it.path }
             var validated = false
             if (reg != null) {
                 val status = serverCall("PUT", "$server/registrations/${reg.id}", phone, reg.secret)
                 if (status == null) reg = null else validated = status.optBoolean("validated")
             }
-            var fresh = false
             if (reg == null) {
                 val created = serverCall("POST", "$server/registrations", phone, null)
                     ?: throw PushSetupException("The server answered 404; check the URL", retry = false)
                 reg = Push.Registration(server, created.getString("id"), created.getString("secret"), created.getString("webhook_path"))
-                if (obsolete(server)) {
-                    // Turned off (or another server chosen) while registering: don't leave this one behind.
+                if (obsolete(server, apiToken)) {
+                    // Turned off, another server chosen or signed out while registering: don't leave this one behind.
                     runCatching { serverCall("DELETE", "$server/registrations/${reg.id}", null, reg.secret) }
                     return Result.success()
                 }
                 Push.saveRegistration(context, reg)
-                fresh = true
             }
 
-            val subscription = subscribe(api, account.workspaceId, account.userId, reg, takeOver || fresh)
+            val subscription = subscribe(api, account.workspaceId, account.userId, reg, takeOver, previousCallback)
             val subId = subscription.getLong("subscription_id")
-            if (obsolete(server)) {
+            if (obsolete(server, apiToken)) {
                 runCatching { Push.deleteOwnWebhook(api, account.workspaceId, subId, reg.server + reg.path) }
                 runCatching { serverCall("DELETE", "$server/registrations/${reg.id}", null, reg.secret) }
                 if (Push.registration(context)?.id == reg.id) Push.saveRegistration(context, null)
@@ -385,11 +385,19 @@ class PushRegisterWorker(context: Context, params: WorkerParameters) : Coroutine
      * The Toggl subscription for [reg]: ours if it exists, otherwise one Track Watch made before
      * (by description) is pointed here when [takeOver], otherwise a new one is created.
      */
-    /** The settings changed while this ran: live updates were turned off or moved to another server. */
-    private fun obsolete(server: String): Boolean =
-        !Push.enabled(applicationContext) || Push.serverUrl(applicationContext) != server
+    /** Things changed while this ran: live updates turned off or moved to another server, or signed out. */
+    private fun obsolete(server: String, apiToken: String): Boolean =
+        !Push.enabled(applicationContext) || Push.serverUrl(applicationContext) != server ||
+            PhoneStore.get(applicationContext).token != apiToken
 
-    private fun subscribe(api: TogglApi, wid: Long, userId: Long, reg: Push.Registration, takeOver: Boolean): JSONObject {
+    private fun subscribe(
+        api: TogglApi,
+        wid: Long,
+        userId: Long,
+        reg: Push.Registration,
+        takeOver: Boolean,
+        previousCallback: String?,
+    ): JSONObject {
         val callback = reg.server + reg.path
         val body = JSONObject()
             .put("url_callback", callback)
@@ -409,7 +417,8 @@ class PushRegisterWorker(context: Context, params: WorkerParameters) : Coroutine
         }
         return when {
             earlier == null -> api.createWebhook(wid, body)
-            takeOver -> api.updateWebhook(wid, earlier.getLong("subscription_id"), body)
+            takeOver || earlier.optString("url_callback") == previousCallback ->
+                api.updateWebhook(wid, earlier.getLong("subscription_id"), body)
             else -> throw PushSetupException("moved to another phone; Settings → Save brings them back", retry = false, stop = true)
         }
     }
