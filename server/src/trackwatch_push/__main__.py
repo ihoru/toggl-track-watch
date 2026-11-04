@@ -105,7 +105,7 @@ def toggl_command(args: argparse.Namespace) -> None:
     workspace = args.workspace or _toggl("GET", f"{TOGGL_API}/me", token)["default_workspace_id"]
     base = f"{WEBHOOKS_API}/subscriptions/{workspace}"
     subscriptions = _toggl("GET", base, token) or []
-    ours = [s for s in subscriptions if s.get("description") == DESCRIPTION]
+    ours = [s for s in subscriptions if str(s.get("description") or "").startswith(DESCRIPTION)]
 
     def show(items) -> None:
         print(json.dumps(items, indent=2))

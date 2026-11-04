@@ -118,7 +118,8 @@ turns to **Live updates on** once Toggl validated the webhook, usually within se
 on [track.toggl.com](https://track.toggl.com) and the watch should show it stopped within a few
 seconds; the server log shows `time_entry updated -> <id>…`.
 
-The phone's subscription is named "Track Watch live updates" in the user's default workspace.
+The phone's subscription is named "Track Watch live updates (<Toggl user id>)" in the user's
+default workspace; a phone only ever changes its own user's subscription.
 Toggl's limits are per workspace: the Free plan allows 1 webhook (with up to 3 event filters, which
 is exactly what this uses), Starter 2, Premium 3. So on the Free plan one phone per account and
 workspace gets live updates: turning them on on a second phone moves the subscription there, and

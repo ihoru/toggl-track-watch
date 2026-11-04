@@ -64,7 +64,9 @@ object Push {
     // Register and unregister calls share one queue, so a late unregister can't undo a newer registration.
     private const val SERVER_CALLS = "push-server"
     private const val CHECK_AFTER = 20 * 60 * 60_000L
+    // Toggl wants descriptions unique per workspace, and admins see members' subscriptions: one per user.
     internal const val DESCRIPTION = "Track Watch live updates"
+    internal fun description(userId: Long) = "$DESCRIPTION ($userId)"
     internal val EVENT_FILTERS: JSONArray
         get() = JSONArray(
             listOf("created", "updated", "deleted").map { JSONObject().put("entity", "time_entry").put("action", it) }
@@ -322,12 +324,23 @@ class PushRegisterWorker(context: Context, params: WorkerParameters) : Coroutine
                 val created = serverCall("POST", "$server/registrations", phone, null)
                     ?: throw PushSetupException("The server answered 404; check the URL", retry = false)
                 reg = Push.Registration(server, created.getString("id"), created.getString("secret"), created.getString("webhook_path"))
+                if (obsolete(server)) {
+                    // Turned off (or another server chosen) while registering: don't leave this one behind.
+                    runCatching { serverCall("DELETE", "$server/registrations/${reg.id}", null, reg.secret) }
+                    return Result.success()
+                }
                 Push.saveRegistration(context, reg)
                 fresh = true
             }
 
-            val subscription = subscribe(api, account.workspaceId, reg, takeOver || fresh)
+            val subscription = subscribe(api, account.workspaceId, account.userId, reg, takeOver || fresh)
             val subId = subscription.getLong("subscription_id")
+            if (obsolete(server)) {
+                runCatching { Push.deleteOwnWebhook(api, account.workspaceId, subId, reg.server + reg.path) }
+                runCatching { serverCall("DELETE", "$server/registrations/${reg.id}", null, reg.secret) }
+                if (Push.registration(context)?.id == reg.id) Push.saveRegistration(context, null)
+                return Result.success()
+            }
             Push.saveSubscription(context, account.workspaceId, subId, reg.server + reg.path)
             if (!validated || subscription.isNull("validated_at")) {
                 api.pingWebhook(account.workspaceId, subId)
@@ -372,13 +385,17 @@ class PushRegisterWorker(context: Context, params: WorkerParameters) : Coroutine
      * The Toggl subscription for [reg]: ours if it exists, otherwise one Track Watch made before
      * (by description) is pointed here when [takeOver], otherwise a new one is created.
      */
-    private fun subscribe(api: TogglApi, wid: Long, reg: Push.Registration, takeOver: Boolean): JSONObject {
+    /** The settings changed while this ran: live updates were turned off or moved to another server. */
+    private fun obsolete(server: String): Boolean =
+        !Push.enabled(applicationContext) || Push.serverUrl(applicationContext) != server
+
+    private fun subscribe(api: TogglApi, wid: Long, userId: Long, reg: Push.Registration, takeOver: Boolean): JSONObject {
         val callback = reg.server + reg.path
         val body = JSONObject()
             .put("url_callback", callback)
             .put("event_filters", Push.EVENT_FILTERS)
             .put("enabled", true)
-            .put("description", Push.DESCRIPTION)
+            .put("description", Push.description(userId))
             .put("secret", reg.secret)
         val subscriptions = api.webhookSubscriptions(wid)
         val ours = subscriptions.firstOrNull { it.optString("url_callback") == callback }
@@ -386,7 +403,10 @@ class PushRegisterWorker(context: Context, params: WorkerParameters) : Coroutine
             // Toggl turns a subscription off after repeated delivery failures (e.g. the server was down).
             return if (ours.optBoolean("enabled", true)) ours else api.enableWebhook(wid, ours.getLong("subscription_id"))
         }
-        val earlier = subscriptions.firstOrNull { it.optString("description") == Push.DESCRIPTION }
+        // Only this user's own: a workspace admin also sees, and could overwrite, other members' subscriptions.
+        val earlier = subscriptions.firstOrNull {
+            it.optString("description").startsWith(Push.DESCRIPTION) && it.optLong("user_id", userId) == userId
+        }
         return when {
             earlier == null -> api.createWebhook(wid, body)
             takeOver -> api.updateWebhook(wid, earlier.getLong("subscription_id"), body)
