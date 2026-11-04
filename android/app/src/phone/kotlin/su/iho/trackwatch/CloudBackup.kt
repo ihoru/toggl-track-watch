@@ -31,8 +31,8 @@ object CloudBackup {
         val favorites: List<Favorite>,
         val compact: Boolean,
         val watchSettings: Map<String, Any>?,
+        val pushEnabled: Boolean = false,
         val pushUrl: String? = null,
-        val pushSecret: String? = null,
     )
 
     /** Saves the current settings. Fire-and-forget; failures only mean there is no backup. */
@@ -44,8 +44,8 @@ object CloudBackup {
             .put("favorites", JSONArray(store.favorites.map { it.toJson() }))
             .put("compact", app.getSharedPreferences("ui", Context.MODE_PRIVATE).getBoolean("compact", false))
             .put("watchSettings", store.watchSettings?.let { JSONObject(it) } ?: JSONObject.NULL)
-            .put("pushUrl", Push.url(app) ?: JSONObject.NULL)
-            .put("pushSecret", Push.secret(app) ?: JSONObject.NULL)
+            .put("pushEnabled", Push.enabled(app))
+            .put("pushUrl", Push.customUrl(app) ?: JSONObject.NULL)
         val chunks = gzip(json.toString()).toList().chunked(CHUNK_SIZE).map { it.toByteArray() }
         if (chunks.size > MAX_CHUNKS) return
 
@@ -74,8 +74,8 @@ object CloudBackup {
             favorites = json.optJSONArray("favorites").objects().map(Favorite::fromJson),
             compact = json.optBoolean("compact", false),
             watchSettings = json.optJSONObject("watchSettings")?.toMap(),
+            pushEnabled = json.optBoolean("pushEnabled", false),
             pushUrl = if (json.isNull("pushUrl")) null else json.optString("pushUrl").ifEmpty { null },
-            pushSecret = if (json.isNull("pushSecret")) null else json.optString("pushSecret").ifEmpty { null },
         )
     }
 }

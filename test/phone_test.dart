@@ -67,7 +67,52 @@ void main() {
     expect(find.text('Remove token?'), findsOneWidget);
   });
 
-  testWidgets('live updates are set up from the sync details', (tester) async {
+  testWidgets('live updates turn on with one tap and the built-in server', (tester) async {
+    final bridge = FakePhoneBridge(
+      PhoneSnapshot(
+        sampleState(),
+        const Account(name: 'Ihor', email: 'e@x', workspace: 'WS'),
+        push: const PushStatus(
+          available: true,
+          url: 'https://push.example.com',
+          defaultUrl: 'https://push.example.com',
+        ),
+      ),
+    );
+    await tester.pumpWidget(PhoneApp(bridge: bridge));
+    await tester.pumpAndSettle();
+    await tester.tap(find.textContaining('Watch ✓'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Live updates off'), findsOneWidget);
+
+    await tester.tap(find.text('Turn on'));
+    await tester.pumpAndSettle();
+    expect(bridge.pushSettings, (true, 'https://push.example.com'));
+    expect(find.text('Live updates: setting up…'), findsOneWidget);
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    // The built-in server shows as the hint, not as an entered URL.
+    expect(find.text('Leave empty for the Track Watch server'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, 'Server'), 'http://own.example.com');
+    await tester.pump();
+    // Toggl needs HTTPS.
+    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Save')).onPressed, isNull);
+    await tester.enterText(find.widgetWithText(TextField, 'Server'), ' https://own.example.com ');
+    await tester.pump();
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(bridge.pushSettings, (true, 'https://own.example.com'));
+
+    await tester.tap(find.text('Settings'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Turn off'));
+    await tester.pumpAndSettle();
+    expect(bridge.pushSettings, (false, ''));
+    expect(find.textContaining('Live updates off'), findsOneWidget);
+  });
+
+  testWidgets('without a built-in server, turning live updates on asks for one', (tester) async {
     final bridge = FakePhoneBridge(
       PhoneSnapshot(
         sampleState(),
@@ -79,27 +124,15 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.textContaining('Watch ✓'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Live updates off'), findsOneWidget);
-
-    await tester.tap(find.text('Set up'));
+    await tester.tap(find.text('Turn on'));
     await tester.pumpAndSettle();
-    await tester.enterText(find.widgetWithText(TextField, 'Server URL'), 'http://push.example.com');
-    await tester.enterText(find.widgetWithText(TextField, 'App secret'), 's3cret');
+    expect(find.text('Live updates'), findsOneWidget);
+    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Turn on')).onPressed, isNull);
+    await tester.enterText(find.widgetWithText(TextField, 'Server'), 'https://own.example.com');
     await tester.pump();
-    // Toggl and FCM need HTTPS.
-    expect(tester.widget<FilledButton>(find.widgetWithText(FilledButton, 'Save')).onPressed, isNull);
-    await tester.enterText(find.widgetWithText(TextField, 'Server URL'), ' https://push.example.com ');
-    await tester.pump();
-    await tester.tap(find.text('Save'));
+    await tester.tap(find.widgetWithText(FilledButton, 'Turn on'));
     await tester.pumpAndSettle();
-    expect(bridge.pushSettings, ('https://push.example.com', 's3cret'));
-    expect(find.text('Live updates: connecting…'), findsOneWidget);
-
-    await tester.tap(find.text('Edit'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Turn off'));
-    await tester.pumpAndSettle();
-    expect(bridge.pushSettings, ('', ''));
+    expect(bridge.pushSettings, (true, 'https://own.example.com'));
   });
 
   testWidgets('live updates are hidden in builds without Firebase', (tester) async {

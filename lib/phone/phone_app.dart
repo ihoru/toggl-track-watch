@@ -169,6 +169,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
                   onSync: _bridge.syncNow,
                   version: _version,
                   push: _snapshot.push,
+                  onTurnOnPush: _turnOnPush,
                   onEditPush: _editPush,
                 ),
                 FavoritesSection(
@@ -183,13 +184,20 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     );
   }
 
+  /// One tap with the built-in server; otherwise asks for one.
+  Future<void> _turnOnPush() async {
+    if (_snapshot.push.defaultUrl.isEmpty) return _editPush();
+    final snapshot = await _bridge.setPush(enabled: true, url: _snapshot.push.url);
+    if (mounted) setState(() => _snapshot = snapshot);
+  }
+
   Future<void> _editPush() async {
-    final result = await showDialog<(String, String)>(
+    final result = await showDialog<(bool, String)>(
       context: context,
       builder: (context) => LiveUpdatesDialog(push: _snapshot.push),
     );
     if (result == null) return;
-    final snapshot = await _bridge.setPush(result.$1, result.$2);
+    final snapshot = await _bridge.setPush(enabled: result.$1, url: result.$2);
     if (mounted) setState(() => _snapshot = snapshot);
   }
 
@@ -318,6 +326,7 @@ class SyncRow extends StatefulWidget {
     required this.onSync,
     this.version = '',
     this.push = PushStatus.unavailable,
+    this.onTurnOnPush,
     this.onEditPush,
   });
 
@@ -326,6 +335,7 @@ class SyncRow extends StatefulWidget {
   final Future<void> Function() onSync;
   final String version;
   final PushStatus push;
+  final VoidCallback? onTurnOnPush;
   final VoidCallback? onEditPush;
 
   @override
@@ -442,19 +452,21 @@ class _SyncRowState extends State<SyncRow> {
     final push = widget.push;
     final last = push.lastMessageAt;
     final (String text, Color? color) = switch (push) {
-      _ when !push.configured => ('Live updates off: polling Toggl every 15 min', null),
+      _ when !push.enabled => ('Live updates off: polling Toggl every 15 min', null),
       _ when push.error != null => ('Live updates: ${push.error}', theme.colorScheme.error),
       _ when push.active => (
         last == null ? 'Live updates on' : 'Live updates on · last ${relativeAgo(last)}',
         theme.colorScheme.primary,
       ),
-      _ => ('Live updates: connecting…', theme.colorScheme.tertiary),
+      _ => ('Live updates: setting up…', theme.colorScheme.tertiary),
     };
     return _line(
       push.active ? Icons.bolt : Icons.bolt_outlined,
       text,
       color: color,
-      trailing: TextButton(onPressed: widget.onEditPush, child: Text(push.configured ? 'Edit' : 'Set up')),
+      trailing: push.enabled
+          ? TextButton(onPressed: widget.onEditPush, child: const Text('Settings'))
+          : TextButton(onPressed: widget.onTurnOnPush, child: const Text('Turn on')),
     );
   }
 
@@ -473,7 +485,8 @@ class _SyncRowState extends State<SyncRow> {
   );
 }
 
-/// Server URL and app secret for live updates. Pops `(url, secret)`; an empty URL turns them off.
+/// Live updates settings: the server, and turning them on or off. Pops `(enabled, url)`; an empty
+/// URL means the server built into the app.
 class LiveUpdatesDialog extends StatefulWidget {
   const LiveUpdatesDialog({super.key, required this.push});
 
@@ -484,24 +497,25 @@ class LiveUpdatesDialog extends StatefulWidget {
 }
 
 class _LiveUpdatesDialogState extends State<LiveUpdatesDialog> {
-  late final _url = TextEditingController(text: widget.push.url);
-  final _secret = TextEditingController();
+  late final _url = TextEditingController(text: widget.push.url == widget.push.defaultUrl ? '' : widget.push.url);
 
   @override
   void dispose() {
     _url.dispose();
-    _secret.dispose();
     super.dispose();
   }
 
+  String get _cleanUrl => _url.text.trim();
+
   bool get _valid {
-    final url = Uri.tryParse(_url.text.trim());
-    final hasSecret = _secret.text.trim().isNotEmpty || widget.push.hasSecret;
-    return url != null && url.scheme == 'https' && url.host.isNotEmpty && hasSecret;
+    if (_cleanUrl.isEmpty) return widget.push.defaultUrl.isNotEmpty;
+    final url = Uri.tryParse(_cleanUrl);
+    return url != null && url.scheme == 'https' && url.host.isNotEmpty;
   }
 
   @override
   Widget build(BuildContext context) {
+    final hasDefault = widget.push.defaultUrl.isNotEmpty;
     return AlertDialog(
       title: const Text('Live updates'),
       content: SingleChildScrollView(
@@ -510,24 +524,19 @@ class _LiveUpdatesDialogState extends State<LiveUpdatesDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Your own server forwards Toggl changes to this phone, so the watch updates right away '
-              'and the phone polls Toggl only once a day.',
+              'Toggl tells the server about every change, and the server forwards it to this phone, so '
+              'the watch updates right away and the phone polls Toggl only once a day. The phone sets '
+              'up the Toggl webhook itself; the server never sees your API token.',
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _url,
               keyboardType: TextInputType.url,
               autocorrect: false,
-              decoration: const InputDecoration(labelText: 'Server URL', hintText: 'https://push.example.com'),
-              onChanged: (_) => setState(() {}),
-            ),
-            TextField(
-              controller: _secret,
-              obscureText: true,
-              autocorrect: false,
               decoration: InputDecoration(
-                labelText: 'App secret',
-                hintText: widget.push.hasSecret ? 'Unchanged' : 'TRACKWATCH_APP_SECRET',
+                labelText: 'Server',
+                hintText: hasDefault ? widget.push.defaultUrl : 'https://push.example.com',
+                helperText: hasDefault ? 'Leave empty for the Track Watch server' : null,
               ),
               onChanged: (_) => setState(() {}),
             ),
@@ -536,11 +545,11 @@ class _LiveUpdatesDialogState extends State<LiveUpdatesDialog> {
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        if (widget.push.configured)
-          TextButton(onPressed: () => Navigator.pop(context, ('', '')), child: const Text('Turn off')),
+        if (widget.push.enabled)
+          TextButton(onPressed: () => Navigator.pop(context, (false, '')), child: const Text('Turn off')),
         FilledButton(
-          onPressed: _valid ? () => Navigator.pop(context, (_url.text.trim(), _secret.text.trim())) : null,
-          child: const Text('Save'),
+          onPressed: _valid ? () => Navigator.pop(context, (true, _cleanUrl)) : null,
+          child: Text(widget.push.enabled ? 'Save' : 'Turn on'),
         ),
       ],
     );

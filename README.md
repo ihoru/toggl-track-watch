@@ -74,8 +74,8 @@ details and on the watch's Sync page.
 
 ## Privacy
 
-Your token stays encrypted on your phone. The app talks only to Toggl's API (and, if you set up
-live updates, to your own server through Firebase), and has no analytics and no servers of its own. See the [privacy policy](docs/PRIVACY.md).
+Your token stays encrypted on your phone. The app talks only to Toggl's API (and, if you turn on
+live updates, to the live-updates server through Firebase), and has no analytics. See the [privacy policy](docs/PRIVACY.md).
 
 ## Build from source
 
@@ -143,9 +143,9 @@ id `su.iho.trackwatch`, which the Wear OS Data Layer requires. Design notes: [do
   15 minutes. Projects are refreshed at most once an hour and frequent and recent timers once a day, to stay
   within Toggl's API quotas. A background refresh only wakes the watch when an entry, project,
   favorite or error actually changed, to save the watch's battery.
-- **Live updates (optional):** with your own [push server](server/README.md), Toggl webhooks reach
-  the phone through Firebase Cloud Messaging, so a timer stopped elsewhere shows on the watch within
-  seconds. The phone then polls Toggl only once a day, and opening the watch no longer calls Toggl.
+- **Live updates (optional):** one switch in the phone app. The phone creates a Toggl webhook to
+  the [live-updates server](server/README.md), which forwards each change through Firebase Cloud
+  Messaging, so a timer stopped elsewhere shows on the watch within seconds. The phone then polls Toggl only once a day, and opening the watch no longer calls Toggl.
 - If Toggl reports the API quota as exhausted (HTTP 402), the phone waits until it resets and then
   sends the queued changes.
 - Starting a favorite from the phone opens the official Toggl app through its

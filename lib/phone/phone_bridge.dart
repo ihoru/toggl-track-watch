@@ -12,12 +12,14 @@ class Account {
   final String workspace;
 }
 
-/// Live updates: Toggl changes pushed by the user's own server (see server/README.md).
+/// Live updates: Toggl changes pushed through a server (see server/README.md). The phone sets up
+/// the Toggl webhook itself, so turning them on needs no more than a switch.
 class PushStatus {
   const PushStatus({
     this.available = false,
+    this.enabled = false,
     this.url = '',
-    this.hasSecret = false,
+    this.defaultUrl = '',
     this.active = false,
     this.error,
     this.lastMessageAt,
@@ -25,22 +27,29 @@ class PushStatus {
 
   /// Whether this build has a Firebase configuration; without it the section is hidden.
   final bool available;
-  final String url;
-  final bool hasSecret;
 
-  /// The server accepted this phone; the phone then polls Toggl only once a day.
+  /// The user turned live updates on.
+  final bool enabled;
+
+  /// The server in use: the one the user entered, or else [defaultUrl].
+  final String url;
+
+  /// The server built into the app; empty in builds without one.
+  final String defaultUrl;
+
+  /// The server registered the phone and Toggl validated the webhook; the phone then polls Toggl
+  /// only once a day.
   final bool active;
   final String? error;
   final DateTime? lastMessageAt;
-
-  bool get configured => url.isNotEmpty;
 
   static const unavailable = PushStatus();
 
   factory PushStatus.fromJson(Map<String, dynamic> json) => PushStatus(
     available: json['available'] as bool? ?? false,
+    enabled: json['enabled'] as bool? ?? false,
     url: json['url'] as String? ?? '',
-    hasSecret: json['hasSecret'] as bool? ?? false,
+    defaultUrl: json['defaultUrl'] as String? ?? '',
     active: json['active'] as bool? ?? false,
     error: json['error'] as String?,
     lastMessageAt: switch (json['lastMessageAt']) {
@@ -95,9 +104,8 @@ abstract class PhoneBridge {
   Future<void> syncNow();
   Future<bool> watchConnected();
 
-  /// Saves the live-updates server and registers with it. A blank [url] turns live updates off;
-  /// a blank [secret] keeps the saved one.
-  Future<PhoneSnapshot> setPush(String url, String secret);
+  /// Turns live updates on or off. A blank [url] means the server built into the app.
+  Future<PhoneSnapshot> setPush({required bool enabled, String url = ''});
 
   /// Installed app version, e.g. "1.1.0 (2)".
   Future<String> appVersion();
@@ -149,8 +157,8 @@ class ChannelPhoneBridge implements PhoneBridge {
   Future<void> syncNow() => _methods.invokeMethod('syncNow');
 
   @override
-  Future<PhoneSnapshot> setPush(String url, String secret) async =>
-      PhoneSnapshot.decode((await _methods.invokeMethod<String>('setPush', {'url': url, 'secret': secret}))!);
+  Future<PhoneSnapshot> setPush({required bool enabled, String url = ''}) async =>
+      PhoneSnapshot.decode((await _methods.invokeMethod<String>('setPush', {'enabled': enabled, 'url': url}))!);
 
   @override
   Future<bool> watchConnected() async => await _methods.invokeMethod<bool>('watchConnected') ?? false;

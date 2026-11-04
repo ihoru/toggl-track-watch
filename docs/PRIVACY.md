@@ -11,27 +11,31 @@ Ihor Polyakov. This policy covers the Track Watch phone app and Wear OS app.
 - **Your Toggl Track data** the app needs to work: time entries of the last 30 days, projects and
   your account's name, email address and default workspace. The name and email are only shown in
   the phone app; they stay on the phone.
-- **Your favorites and app settings**, including the live-updates server address and app secret
-  if you set them.
+- **Your favorites and app settings**, including whether live updates are on and the server
+  address if you entered your own.
 
 ## Where it goes
 - The phone app talks **only to Toggl's API** (`api.track.toggl.com`) with your token, to read and
   change your time entries. Toggl's own [privacy policy](https://toggl.com/legal/privacy/) applies there.
 - The phone and watch exchange time entries, projects, favorites and watch settings over the Wear OS connection
   (Google Play services Wearable Data Layer), directly between your devices.
-- **Live updates (optional, off unless you set them up):** if you enter the address of your own
-  push server in the phone app, the phone sends that server its Firebase Cloud Messaging token,
-  your Toggl user id, default workspace id and the phone's model name. The server forwards Toggl's
-  notifications about your time entries to the phone through Google's Firebase Cloud Messaging.
-  You run that server; the developer doesn't receive any of it.
+- **Live updates (optional, off unless you turn them on):** the phone registers with the
+  live-updates server (the developer's, `trackwatch.iho.su`, unless you enter your own) and sends it
+  its Firebase Cloud Messaging token, your Toggl user id, default workspace id and the phone's model
+  name. The phone then creates a Toggl webhook with your token, so Toggl sends that server a
+  notification for each change to a time entry (its description, project, start, stop and
+  duration). The server forwards it to your phone through Google's Firebase Cloud Messaging and
+  doesn't keep it; it keeps only the registration and when the last notification arrived. It never
+  receives your Toggl API token. Turning live updates off or removing the token deletes the
+  registration and the webhook.
 - **Backup:** the token, favorites and settings (not your time entries) are saved with Google Play services **Block Store**
   so they survive reinstalling. With a screen lock set, the backup is end-to-end encrypted in your
   Google account; otherwise it stays on the device. The developer can't read it.
 
 ## What the app doesn't do
 - No analytics, ads, tracking or crash reporting.
-- No servers of its own; nothing is sent to the developer. The optional live-updates server is one
-  you run yourself.
+- Nothing is sent to the developer, except to the live-updates server while you have live updates
+  on (see above).
 - No data is sold or shared with anyone besides Toggl (for the time tracking you ask it to do).
 
 ## Deleting your data

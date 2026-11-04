@@ -3,7 +3,9 @@ services:
   trackwatch-push:
     build: .
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
       GOOGLE_APPLICATION_CREDENTIALS: /secrets/firebase-service-account.json
     volumes:

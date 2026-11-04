@@ -199,15 +199,16 @@ class FakePhoneBridge implements PhoneBridge {
   @override
   Future<void> syncNow() async {}
 
-  (String, String)? pushSettings;
+  (bool, String)? pushSettings;
 
   @override
-  Future<PhoneSnapshot> setPush(String url, String secret) async {
-    pushSettings = (url, secret);
+  Future<PhoneSnapshot> setPush({required bool enabled, String url = ''}) async {
+    pushSettings = (enabled, url);
+    final defaultUrl = snapshot.push.defaultUrl;
     snapshot = PhoneSnapshot(
       snapshot.state,
       snapshot.account,
-      push: PushStatus(available: true, url: url, hasSecret: secret.isNotEmpty || snapshot.push.hasSecret),
+      push: PushStatus(available: true, enabled: enabled, url: url.isEmpty ? defaultUrl : url, defaultUrl: defaultUrl),
     );
     return snapshot;
   }
