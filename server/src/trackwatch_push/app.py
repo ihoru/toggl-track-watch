@@ -137,6 +137,9 @@ async def create_registration(request: web.Request) -> web.Response:
             return _error(503, "the server is full")
     if (problem := await _check_token(request.app, fields["token"])) is not None:
         return problem
+    # Again, with no await before create: other registrations may have arrived during the check.
+    if len(store) >= config.max_registrations:
+        return _error(503, "the server is full")
     reg = store.create(**fields)
     log.info("New registration %s… for user %s (%s)", reg.id[:6], reg.user_id, reg.name or "unnamed")
     return web.json_response(

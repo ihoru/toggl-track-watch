@@ -237,6 +237,8 @@ object Push {
         prefs(context).edit().putLong(K_SUB_WORKSPACE, workspaceId).putLong(K_SUB_ID, id).putString(K_SUB_CALLBACK, callback).apply()
     }
 
+    internal fun subscriptionCallback(context: Context): String? = prefs(context).getString(K_SUB_CALLBACK, null)
+
     private fun forgetSubscription(context: Context) {
         prefs(context).edit().remove(K_SUB_WORKSPACE).remove(K_SUB_ID).remove(K_SUB_CALLBACK).apply()
     }
@@ -314,8 +316,9 @@ class PushRegisterWorker(context: Context, params: WorkerParameters) : Coroutine
                 .put("name", "${Build.MANUFACTURER} ${Build.MODEL}")
 
             var reg = Push.registration(context)?.takeIf { it.server == server }
-            // The subscription this phone had before the server lost its registration is still its own.
-            val previousCallback = reg?.let { it.server + it.path }
+            // The subscription this phone last set up is still its own, even if the server lost that
+            // registration (saved only once a setup succeeded, so it survives failed retries).
+            val previousCallback = Push.subscriptionCallback(context) ?: reg?.let { it.server + it.path }
             var validated = false
             if (reg != null) {
                 val status = serverCall("PUT", "$server/registrations/${reg.id}", phone, reg.secret)

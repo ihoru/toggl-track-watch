@@ -249,6 +249,20 @@ async def test_server_full(client, store):
     assert r.status == 503
 
 
+async def test_capacity_is_rechecked_after_the_token_check(client, sender, store):
+    real_send = sender.send
+
+    async def slow_check(token, data, validate_only=False):
+        # Another phone fills the server while this one's token is being checked.
+        for i in range(5):
+            store.create(f"other{i}", 8, None, "")
+        return await real_send(token, data, validate_only)
+
+    sender.send = slow_check
+    r = await client.post("/registrations", json={"token": "t", "user_id": 7})
+    assert r.status == 503 and len(store) == 5
+
+
 def test_unvalidated_registrations_expire(store):
     old = store.create("old", 7, None, "")
     kept = store.create("validated", 7, None, "")
