@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit
 
 class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
+        if (inputData.getBoolean(KEY_PERIODIC, false)) Push.ensureRegistered(applicationContext)
         if (inputData.getBoolean(KEY_REFRESH, false)) {
             PhoneStore.get(applicationContext).requestRefresh(force = inputData.getBoolean(KEY_FORCE, false))
         }
@@ -33,6 +34,7 @@ class SyncWorker(context: Context, params: WorkerParameters) : CoroutineWorker(c
     companion object {
         const val KEY_REFRESH = "refresh"
         const val KEY_FORCE = "force"
+        const val KEY_PERIODIC = "periodic"
     }
 }
 
@@ -41,6 +43,7 @@ object Sync {
     private const val LATER = "sync-later"
     private const val SOON = "sync-soon"
     private const val PERIODIC = "sync-periodic"
+    private const val K_PERIOD = "periodMinutes"
 
     private val network = Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
 
@@ -75,13 +78,23 @@ object Sync {
         WorkManager.getInstance(context).enqueueUniqueWork(SOON, ExistingWorkPolicy.REPLACE, request)
     }
 
-    /** Refreshes from Toggl every 15 minutes (the Android minimum). */
+    /**
+     * Refreshes from Toggl every 15 minutes (the Android minimum), or once a day while live updates
+     * work (see [Push]): the daily run is the safety net for a missed push, and also re-ranks the
+     * frequent and recent timers.
+     */
     fun schedulePeriodic(context: Context) {
-        val request = PeriodicWorkRequestBuilder<SyncWorker>(15, TimeUnit.MINUTES)
+        if (PhoneStore.get(context).token == null) return
+        val minutes = if (Push.active(context)) 24 * 60L else 15L
+        val prefs = context.getSharedPreferences("sync", Context.MODE_PRIVATE)
+        // Re-enqueueing restarts the period, so only replace the work when the interval changes.
+        val policy = if (prefs.getLong(K_PERIOD, 0) == minutes) ExistingPeriodicWorkPolicy.KEEP else ExistingPeriodicWorkPolicy.UPDATE
+        val request = PeriodicWorkRequestBuilder<SyncWorker>(minutes, TimeUnit.MINUTES)
             .setConstraints(network)
-            .setInputData(workDataOf(SyncWorker.KEY_REFRESH to true))
+            .setInputData(workDataOf(SyncWorker.KEY_REFRESH to true, SyncWorker.KEY_PERIODIC to true))
             .build()
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(PERIODIC, ExistingPeriodicWorkPolicy.KEEP, request)
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(PERIODIC, policy, request)
+        prefs.edit().putLong(K_PERIOD, minutes).apply()
     }
 
     fun cancelAll(context: Context) {
@@ -91,5 +104,6 @@ object Sync {
             cancelUniqueWork(SOON)
             cancelUniqueWork(PERIODIC)
         }
+        context.getSharedPreferences("sync", Context.MODE_PRIVATE).edit().remove(K_PERIOD).apply()
     }
 }

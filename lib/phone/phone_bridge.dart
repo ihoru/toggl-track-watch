@@ -12,17 +12,59 @@ class Account {
   final String workspace;
 }
 
+/// Live updates: Toggl changes pushed by the user's own server (see server/README.md).
+class PushStatus {
+  const PushStatus({
+    this.available = false,
+    this.url = '',
+    this.hasSecret = false,
+    this.active = false,
+    this.error,
+    this.lastMessageAt,
+  });
+
+  /// Whether this build has a Firebase configuration; without it the section is hidden.
+  final bool available;
+  final String url;
+  final bool hasSecret;
+
+  /// The server accepted this phone; the phone then polls Toggl only once a day.
+  final bool active;
+  final String? error;
+  final DateTime? lastMessageAt;
+
+  bool get configured => url.isNotEmpty;
+
+  static const unavailable = PushStatus();
+
+  factory PushStatus.fromJson(Map<String, dynamic> json) => PushStatus(
+    available: json['available'] as bool? ?? false,
+    url: json['url'] as String? ?? '',
+    hasSecret: json['hasSecret'] as bool? ?? false,
+    active: json['active'] as bool? ?? false,
+    error: json['error'] as String?,
+    lastMessageAt: switch (json['lastMessageAt']) {
+      final num ms => DateTime.fromMillisecondsSinceEpoch(ms.toInt()),
+      _ => null,
+    },
+  );
+}
+
 class PhoneSnapshot {
-  const PhoneSnapshot(this.state, this.account);
+  const PhoneSnapshot(this.state, this.account, {this.push = PushStatus.unavailable});
 
   final ViewState state;
   final Account? account;
+  final PushStatus push;
+
+  PhoneSnapshot withState(ViewState state) => PhoneSnapshot(state, account, push: push);
 
   static const empty = PhoneSnapshot(ViewState.empty, null);
 
   factory PhoneSnapshot.decode(String source) {
     final json = jsonDecode(source) as Map<String, dynamic>;
     final account = json['account'] as Map<String, dynamic>?;
+    final push = json['push'] as Map<String, dynamic>?;
     return PhoneSnapshot(
       ViewState.fromJson(json['state'] as Map<String, dynamic>),
       account == null
@@ -32,6 +74,7 @@ class PhoneSnapshot {
               email: account['email'] as String? ?? '',
               workspace: account['workspace'] as String? ?? '',
             ),
+      push: push == null ? PushStatus.unavailable : PushStatus.fromJson(push),
     );
   }
 }
@@ -51,6 +94,10 @@ abstract class PhoneBridge {
   Future<void> setFavorites(List<Favorite> favorites);
   Future<void> syncNow();
   Future<bool> watchConnected();
+
+  /// Saves the live-updates server and registers with it. A blank [url] turns live updates off;
+  /// a blank [secret] keeps the saved one.
+  Future<PhoneSnapshot> setPush(String url, String secret);
 
   /// Installed app version, e.g. "1.1.0 (2)".
   Future<String> appVersion();
@@ -100,6 +147,10 @@ class ChannelPhoneBridge implements PhoneBridge {
 
   @override
   Future<void> syncNow() => _methods.invokeMethod('syncNow');
+
+  @override
+  Future<PhoneSnapshot> setPush(String url, String secret) async =>
+      PhoneSnapshot.decode((await _methods.invokeMethod<String>('setPush', {'url': url, 'secret': secret}))!);
 
   @override
   Future<bool> watchConnected() async => await _methods.invokeMethod<bool>('watchConnected') ?? false;

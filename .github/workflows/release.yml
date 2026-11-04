@@ -133,6 +133,21 @@ jobs:
             echo "::error::Releases must be signed: set the TRACKWATCH_KEYSTORE_* secrets."; exit 1
           fi
 
+      # Live updates (Firebase Cloud Messaging) need the phone app's google-services.json, kept in the
+      # GOOGLE_SERVICES_JSON secret (see server/README.md). Without it the phone app is built without them.
+      - name: Firebase config
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/src/phone/google-services.json
+            python3 -c "import json; json.load(open('android/app/src/phone/google-services.json'))" \
+              || { echo "::error::GOOGLE_SERVICES_JSON is not valid JSON"; exit 1; }
+            echo "Firebase config written: live updates are built in."
+          else
+            echo "No GOOGLE_SERVICES_JSON secret; building without live updates."
+          fi
+
       # Phone APK: arm64 only. Watch APK: 32- and 64-bit ARM, because many Wear OS watches (Galaxy
       # Watch 4-6, Pixel Watch 1-2) run a 32-bit userspace and reject an arm64-only APK with
       # INSTALL_FAILED_NO_MATCHING_ABIS.

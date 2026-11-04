@@ -93,7 +93,7 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
   }
 
   Future<void> _saveFavorites(List<Favorite> favorites) async {
-    setState(() => _snapshot = PhoneSnapshot(_snapshot.state.copyWith(favorites: favorites), _snapshot.account));
+    setState(() => _snapshot = _snapshot.withState(_snapshot.state.copyWith(favorites: favorites)));
     await _bridge.setFavorites(favorites);
   }
 
@@ -163,7 +163,14 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           : ListView(
               padding: const EdgeInsets.only(bottom: 32),
               children: [
-                SyncRow(state: state, watchConnected: _watchConnected, onSync: _bridge.syncNow, version: _version),
+                SyncRow(
+                  state: state,
+                  watchConnected: _watchConnected,
+                  onSync: _bridge.syncNow,
+                  version: _version,
+                  push: _snapshot.push,
+                  onEditPush: _editPush,
+                ),
                 FavoritesSection(
                   state: state,
                   compact: _compact,
@@ -174,6 +181,16 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
               ],
             ),
     );
+  }
+
+  Future<void> _editPush() async {
+    final result = await showDialog<(String, String)>(
+      context: context,
+      builder: (context) => LiveUpdatesDialog(push: _snapshot.push),
+    );
+    if (result == null) return;
+    final snapshot = await _bridge.setPush(result.$1, result.$2);
+    if (mounted) setState(() => _snapshot = snapshot);
   }
 
   Future<void> _signOut() async {
@@ -300,12 +317,16 @@ class SyncRow extends StatefulWidget {
     required this.watchConnected,
     required this.onSync,
     this.version = '',
+    this.push = PushStatus.unavailable,
+    this.onEditPush,
   });
 
   final ViewState state;
   final bool? watchConnected;
   final Future<void> Function() onSync;
   final String version;
+  final PushStatus push;
+  final VoidCallback? onEditPush;
 
   @override
   State<SyncRow> createState() => _SyncRowState();
@@ -407,6 +428,7 @@ class _SyncRowState extends State<SyncRow> {
                       color: theme.colorScheme.tertiary,
                     ),
                   if (state.error != null) _line(Icons.error_outline, state.error!, color: theme.colorScheme.error),
+                  if (widget.push.available) _pushLine(theme),
                   if (widget.version.isNotEmpty) _line(Icons.info_outline, 'Track Watch ${widget.version}'),
                 ],
               ),
@@ -416,8 +438,28 @@ class _SyncRowState extends State<SyncRow> {
     );
   }
 
-  Widget _line(IconData icon, String text, {Color? color}) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
+  Widget _pushLine(ThemeData theme) {
+    final push = widget.push;
+    final last = push.lastMessageAt;
+    final (String text, Color? color) = switch (push) {
+      _ when !push.configured => ('Live updates off: polling Toggl every 15 min', null),
+      _ when push.error != null => ('Live updates: ${push.error}', theme.colorScheme.error),
+      _ when push.active => (
+        last == null ? 'Live updates on' : 'Live updates on · last ${relativeAgo(last)}',
+        theme.colorScheme.primary,
+      ),
+      _ => ('Live updates: connecting…', theme.colorScheme.tertiary),
+    };
+    return _line(
+      push.active ? Icons.bolt : Icons.bolt_outlined,
+      text,
+      color: color,
+      trailing: TextButton(onPressed: widget.onEditPush, child: Text(push.configured ? 'Edit' : 'Set up')),
+    );
+  }
+
+  Widget _line(IconData icon, String text, {Color? color, Widget? trailing}) => Padding(
+    padding: EdgeInsets.symmetric(vertical: trailing == null ? 4 : 0),
     child: Row(
       children: [
         Icon(icon, size: 18, color: color),
@@ -425,9 +467,84 @@ class _SyncRowState extends State<SyncRow> {
         Expanded(
           child: Text(text, style: TextStyle(color: color)),
         ),
+        ?trailing,
       ],
     ),
   );
+}
+
+/// Server URL and app secret for live updates. Pops `(url, secret)`; an empty URL turns them off.
+class LiveUpdatesDialog extends StatefulWidget {
+  const LiveUpdatesDialog({super.key, required this.push});
+
+  final PushStatus push;
+
+  @override
+  State<LiveUpdatesDialog> createState() => _LiveUpdatesDialogState();
+}
+
+class _LiveUpdatesDialogState extends State<LiveUpdatesDialog> {
+  late final _url = TextEditingController(text: widget.push.url);
+  final _secret = TextEditingController();
+
+  @override
+  void dispose() {
+    _url.dispose();
+    _secret.dispose();
+    super.dispose();
+  }
+
+  bool get _valid {
+    final url = Uri.tryParse(_url.text.trim());
+    final hasSecret = _secret.text.trim().isNotEmpty || widget.push.hasSecret;
+    return url != null && url.scheme == 'https' && url.host.isNotEmpty && hasSecret;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Live updates'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Your own server forwards Toggl changes to this phone, so the watch updates right away '
+              'and the phone polls Toggl only once a day.',
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _url,
+              keyboardType: TextInputType.url,
+              autocorrect: false,
+              decoration: const InputDecoration(labelText: 'Server URL', hintText: 'https://push.example.com'),
+              onChanged: (_) => setState(() {}),
+            ),
+            TextField(
+              controller: _secret,
+              obscureText: true,
+              autocorrect: false,
+              decoration: InputDecoration(
+                labelText: 'App secret',
+                hintText: widget.push.hasSecret ? 'Unchanged' : 'TRACKWATCH_APP_SECRET',
+              ),
+              onChanged: (_) => setState(() {}),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        if (widget.push.configured)
+          TextButton(onPressed: () => Navigator.pop(context, ('', '')), child: const Text('Turn off')),
+        FilledButton(
+          onPressed: _valid ? () => Navigator.pop(context, (_url.text.trim(), _secret.text.trim())) : null,
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
 }
 
 class FavoritesSection extends StatelessWidget {
