@@ -9,8 +9,10 @@ POST   /toggl/webhook/<id>      Toggl Track webhook events, signed with that reg
 GET    /health                  Liveness check.
 
 Anyone may register: the server can only push to the app it was built for (its Firebase project),
-and a registration only receives events from a Toggl subscription its owner created. Unvalidated
-registrations expire after an hour; registrations per IP address and in all are limited.
+and a registration only receives events from a Toggl subscription its owner created. The FCM token
+is checked with Firebase (a validate-only send) before it's stored, so registrations need a real
+install of the app. Unvalidated registrations expire after an hour; registrations per IP address and
+in all are limited.
 """
 
 from __future__ import annotations
@@ -133,12 +135,28 @@ async def create_registration(request: web.Request) -> web.Response:
         if len(store) >= config.max_registrations:
             log.warning("Registration refused: the limit of %d is reached", config.max_registrations)
             return _error(503, "the server is full")
+    if (problem := await _check_token(request.app, fields["token"])) is not None:
+        return problem
     reg = store.create(**fields)
     log.info("New registration %s… for user %s (%s)", reg.id[:6], reg.user_id, reg.name or "unnamed")
     return web.json_response(
         {"id": reg.id, "secret": reg.secret, "webhook_path": f"/toggl/webhook/{reg.id}", "validated": False},
         status=201,
     )
+
+
+async def _check_token(app: web.Application, token: str) -> web.Response | None:
+    """An error response unless Firebase knows [token] for this app."""
+    try:
+        result = await app[SENDER].send(token, {"kind": "check"}, validate_only=True)
+    except Exception:
+        log.exception("Checking an FCM token failed")
+        result = SendResult.FAILED
+    if result is SendResult.UNREGISTERED:
+        return _error(400, "unknown push token")
+    if result is SendResult.FAILED:
+        return _error(503, "can't check the push token now, try again later")
+    return None
 
 
 async def get_registration(request: web.Request) -> web.Response:
@@ -153,6 +171,8 @@ async def update_registration(request: web.Request) -> web.Response:
     fields = _phone_fields(await _json(request))
     if fields is None:
         return _error(400, "token and user_id are required")
+    if fields["token"] != reg.token and (problem := await _check_token(request.app, fields["token"])) is not None:
+        return problem
     reg = request.app[STORE].update(reg.id, **fields)
     return _error(404, "unknown registration") if reg is None else web.json_response(_status(reg))
 

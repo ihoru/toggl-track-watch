@@ -21,11 +21,11 @@ class SendResult(enum.Enum):
 
 
 class Sender(Protocol):
-    async def send(self, token: str, data: dict[str, str]) -> SendResult: ...
+    async def send(self, token: str, data: dict[str, str], validate_only: bool = False) -> SendResult: ...
 
 
-def message(token: str, data: dict[str, str]) -> dict:
-    return {
+def message(token: str, data: dict[str, str], validate_only: bool = False) -> dict:
+    body: dict = {
         "message": {
             "token": token,
             "data": data,
@@ -34,6 +34,10 @@ def message(token: str, data: dict[str, str]) -> dict:
             "android": {"priority": "HIGH", "ttl": "86400s"},
         }
     }
+    if validate_only:
+        # Checks the token with Firebase without delivering anything.
+        body["validate_only"] = True
+    return body
 
 
 class FcmSender:
@@ -57,11 +61,11 @@ class FcmSender:
                 await asyncio.get_running_loop().run_in_executor(None, self._credentials.refresh, Request())
             return self._credentials.token
 
-    async def send(self, token: str, data: dict[str, str]) -> SendResult:
+    async def send(self, token: str, data: dict[str, str], validate_only: bool = False) -> SendResult:
         url = f"https://fcm.googleapis.com/v1/projects/{self.project_id}/messages:send"
         headers = {"Authorization": f"Bearer {await self._access_token()}"}
         try:
-            async with self._session.post(url, json=message(token, data), headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as r:
+            async with self._session.post(url, json=message(token, data, validate_only), headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as r:
                 if r.status == 200:
                     return SendResult.OK
                 body = await r.text()

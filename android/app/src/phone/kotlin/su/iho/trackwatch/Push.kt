@@ -54,6 +54,7 @@ object Push {
     private const val K_REG_PATH = "regPath"
     private const val K_SUB_WORKSPACE = "subWorkspace"
     private const val K_SUB_ID = "subId"
+    private const val K_SUB_CALLBACK = "subCallback"
     private const val K_TOKEN = "fcmToken"
     private const val K_REGISTERED = "registeredToken"
     private const val K_REGISTERED_AT = "registeredAt"
@@ -171,11 +172,13 @@ object Push {
         val p = prefs(context)
         val wid = p.getLong(K_SUB_WORKSPACE, 0)
         val subId = p.getLong(K_SUB_ID, 0)
-        if (apiToken != null && wid > 0 && subId > 0) {
-            Thread { runCatching { TogglApi(apiToken).deleteWebhook(wid, subId) } }.start()
+        val callback = p.getString(K_SUB_CALLBACK, null)
+        if (apiToken != null && wid > 0 && subId > 0 && callback != null) {
+            Thread { runCatching { deleteOwnWebhook(TogglApi(apiToken), wid, subId, callback) } }.start()
         }
         unregister(context, removeSubscription = false)
-        p.edit().remove(K_REGISTERED).remove(K_ERROR).remove(K_STOPPED).remove(K_SUB_WORKSPACE).remove(K_SUB_ID).apply()
+        p.edit().remove(K_REGISTERED).remove(K_ERROR).remove(K_STOPPED).apply()
+        forgetSubscription(context)
     }
 
     /** Forgets the server registration, and also the Toggl subscription when [removeSubscription] (turned off). */
@@ -186,12 +189,15 @@ object Push {
         val secret = p.getString(K_REG_SECRET, null)
         val wid = if (removeSubscription) p.getLong(K_SUB_WORKSPACE, 0) else 0
         val subId = if (removeSubscription) p.getLong(K_SUB_ID, 0) else 0
+        val callback = if (removeSubscription) p.getString(K_SUB_CALLBACK, null) else null
         p.edit().remove(K_REG_SERVER).remove(K_REG_ID).remove(K_REG_SECRET).remove(K_REG_PATH).apply()
-        if (removeSubscription) p.edit().remove(K_SUB_WORKSPACE).remove(K_SUB_ID).apply()
+        if (removeSubscription) forgetSubscription(context)
         if (server == null || id == null || secret == null) return
         val request = OneTimeWorkRequestBuilder<PushUnregisterWorker>()
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .setInputData(workDataOf("url" to server, "id" to id, "secret" to secret, "wid" to wid, "subId" to subId))
+            .setInputData(
+                workDataOf("url" to server, "id" to id, "secret" to secret, "wid" to wid, "subId" to subId, "callback" to callback)
+            )
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(SERVER_CALLS, ExistingWorkPolicy.APPEND_OR_REPLACE, request)
     }
@@ -225,8 +231,21 @@ object Push {
         edit.apply()
     }
 
-    internal fun saveSubscription(context: Context, workspaceId: Long, id: Long) {
-        prefs(context).edit().putLong(K_SUB_WORKSPACE, workspaceId).putLong(K_SUB_ID, id).apply()
+    internal fun saveSubscription(context: Context, workspaceId: Long, id: Long, callback: String) {
+        prefs(context).edit().putLong(K_SUB_WORKSPACE, workspaceId).putLong(K_SUB_ID, id).putString(K_SUB_CALLBACK, callback).apply()
+    }
+
+    private fun forgetSubscription(context: Context) {
+        prefs(context).edit().remove(K_SUB_WORKSPACE).remove(K_SUB_ID).remove(K_SUB_CALLBACK).apply()
+    }
+
+    /**
+     * Deletes the Toggl subscription only while it still points at this phone's registration:
+     * another phone may have taken it over (same subscription id, new callback).
+     */
+    internal fun deleteOwnWebhook(api: TogglApi, wid: Long, id: Long, callback: String) {
+        val current = api.webhookSubscriptions(wid).firstOrNull { it.optLong("subscription_id") == id } ?: return
+        if (current.optString("url_callback") == callback) api.deleteWebhook(wid, id)
     }
 
     internal fun registered(context: Context, token: String) {
@@ -242,6 +261,8 @@ object Push {
 
     internal fun failed(context: Context, error: String, stop: Boolean = false) {
         prefs(context).edit().putString(K_ERROR, error).putBoolean(K_STOPPED, stop).remove(K_REGISTERED).apply()
+        // The subscription now belongs to another phone: this one must not delete it later.
+        if (stop) forgetSubscription(context)
         changed(context)
     }
 
@@ -307,7 +328,7 @@ class PushRegisterWorker(context: Context, params: WorkerParameters) : Coroutine
 
             val subscription = subscribe(api, account.workspaceId, reg, takeOver || fresh)
             val subId = subscription.getLong("subscription_id")
-            Push.saveSubscription(context, account.workspaceId, subId)
+            Push.saveSubscription(context, account.workspaceId, subId, reg.server + reg.path)
             if (!validated || subscription.isNull("validated_at")) {
                 api.pingWebhook(account.workspaceId, subId)
                 validated = serverCall("GET", "$server/registrations/${reg.id}", null, reg.secret)?.optBoolean("validated") == true
@@ -402,10 +423,11 @@ class PushUnregisterWorker(context: Context, params: WorkerParameters) : Corouti
         val secret = inputData.getString("secret") ?: return Result.success()
         val wid = inputData.getLong("wid", 0)
         val subId = inputData.getLong("subId", 0)
+        val callback = inputData.getString("callback")
         return try {
             val apiToken = PhoneStore.get(applicationContext).token
-            if (apiToken != null && wid > 0 && subId > 0) {
-                runCatching { TogglApi(apiToken).deleteWebhook(wid, subId) }
+            if (apiToken != null && wid > 0 && subId > 0 && callback != null) {
+                runCatching { Push.deleteOwnWebhook(TogglApi(apiToken), wid, subId, callback) }
             }
             val request = Request.Builder()
                 .url("$url/registrations/$id")

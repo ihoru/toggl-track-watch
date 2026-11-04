@@ -100,8 +100,9 @@ Endpoints:
 
 Why registering needs no password: the server can only push to the app it was built for, and a
 phone only gets events from the Toggl subscription its own token created; for a workspace admin's
-subscription, only the admin's own entries are forwarded. Registrations Toggl never validates
-expire after an hour.
+subscription, only the admin's own entries are forwarded. The server checks each FCM token with
+Firebase (a validate-only send) before storing it, so a registration needs a real install of the
+app. Registrations Toggl never validates expire after an hour.
 
 `uv run trackwatch-push registrations` (in the container: `docker compose exec trackwatch-push
 trackwatch-push registrations`) lists the phones: user id, model, validated, last event.

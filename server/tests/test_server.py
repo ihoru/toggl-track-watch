@@ -40,8 +40,13 @@ class FakeSender:
     def __init__(self, result=SendResult.OK):
         self.result = result
         self.sent = []
+        self.checked = []
+        self.unknown = set()
 
-    async def send(self, token, data):
+    async def send(self, token, data, validate_only=False):
+        if validate_only:
+            self.checked.append(token)
+            return SendResult.UNREGISTERED if token in self.unknown else SendResult.OK
         self.sent.append((token, data))
         return self.result
 
@@ -128,6 +133,8 @@ def test_fcm_message_is_high_priority_data():
     m = message("tok", {"kind": "time_entry"})["message"]
     assert m["token"] == "tok" and m["data"] == {"kind": "time_entry"}
     assert m["android"]["priority"] == "HIGH" and "notification" not in m
+    assert "validate_only" not in message("tok", {})
+    assert message("tok", {}, validate_only=True)["validate_only"] is True
 
 
 async def test_ping_answers_validation_code_and_validates(client, store):
@@ -200,6 +207,20 @@ async def test_registering_again_replaces_the_old_registration(client, store):
     first = await register(client, token="t")
     second = await register(client, token="t")
     assert [r.id for r in store.all()] == [second["id"]] != [first["id"]]
+
+
+async def test_push_tokens_are_checked_with_firebase(client, sender, store):
+    sender.unknown.add("fake")
+    r = await client.post("/registrations", json={"token": "fake", "user_id": 7})
+    assert r.status == 400 and store.all() == []
+    reg = await register(client, token="real")
+    r = await client.put(f"/registrations/{reg['id']}", json={"token": "fake", "user_id": 7}, headers=auth(reg))
+    assert r.status == 400 and store.get(reg["id"]).token == "real"
+    # The same token again isn't re-checked.
+    r = await client.put(f"/registrations/{reg['id']}", json={"token": "real", "user_id": 7}, headers=auth(reg))
+    assert r.status == 200
+    assert sender.checked == ["fake", "real", "fake"]
+    assert sender.sent == []
 
 
 async def test_bad_registrations(client, store):
