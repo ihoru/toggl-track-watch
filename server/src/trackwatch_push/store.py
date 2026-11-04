@@ -20,6 +20,9 @@ from pathlib import Path
 # A registration Toggl never validated (the phone gave up, or someone just called the API) is
 # dropped after this long.
 UNVALIDATED_TTL = 60 * 60
+# Phones check in daily (PUT) and get events while used. One that did neither for this long was
+# uninstalled, replaced, or lost its subscription to a newer install.
+INACTIVE_TTL = 30 * 24 * 60 * 60
 
 
 @dataclass
@@ -127,6 +130,20 @@ class RegistrationStore:
         now = time.time() if now is None else now
         with self._lock:
             ids = [r.id for r in self._items.values() if r.validated_at is None and now - r.created_at > UNVALIDATED_TTL]
+            for reg_id in ids:
+                del self._items[reg_id]
+            if ids:
+                self._save()
+            return len(ids)
+
+    def expire_inactive(self, now: float | None = None) -> int:
+        now = time.time() if now is None else now
+        with self._lock:
+            ids = [
+                r.id
+                for r in self._items.values()
+                if now - max(r.created_at, r.updated_at, r.last_event_at or 0) > INACTIVE_TTL
+            ]
             for reg_id in ids:
                 del self._items[reg_id]
             if ids:

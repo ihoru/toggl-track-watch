@@ -42,8 +42,9 @@ val firebaseResources: Map<String, String> = file("src/phone/google-services.jso
 } ?: emptyMap()
 
 // The live-updates server the phone app uses unless the user enters another one. It can only push
-// to builds made with its Firebase project, so forks set LIVE_UPDATES_URL (or leave it empty).
-val liveUpdatesUrl: String = System.getenv("LIVE_UPDATES_URL") ?: "https://trackwatch.iho.su"
+// to builds made with its Firebase project, so forks set LIVE_UPDATES_URL (a repository variable in
+// CI) to their own server.
+val liveUpdatesUrl: String = System.getenv("LIVE_UPDATES_URL")?.trim()?.ifEmpty { null } ?: "https://trackwatch.iho.su"
 
 android {
     namespace = "su.iho.trackwatch"

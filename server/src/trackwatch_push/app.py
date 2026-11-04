@@ -30,7 +30,7 @@ from aiohttp import web
 
 from . import toggl
 from .fcm import Sender, SendResult
-from .store import Registration, RegistrationStore
+from .store import INACTIVE_TTL, Registration, RegistrationStore
 
 log = logging.getLogger(__name__)
 
@@ -219,8 +219,10 @@ async def webhook(request: web.Request) -> web.Response:
 
 
 async def _send(app: web.Application, reg: Registration, data: dict[str, str]) -> None:
+    # The phone may send a new token while this is in flight: only the token that failed is forgotten.
+    token = reg.token
     try:
-        result = await app[SENDER].send(reg.token, data)
+        result = await app[SENDER].send(token, data)
     except Exception:
         log.exception("Sending to %s… failed", reg.id[:6])
         return
@@ -228,7 +230,7 @@ async def _send(app: web.Application, reg: Registration, data: dict[str, str]) -
         # The app was uninstalled or its data cleared. The Toggl subscription then gets 410s and
         # Toggl turns it off.
         log.info("Forgetting %s…: its FCM token is no longer registered", reg.id[:6])
-        app[STORE].remove_token(reg.token)
+        app[STORE].remove_token(token)
 
 
 async def health(request: web.Request) -> web.Response:
@@ -241,6 +243,9 @@ async def _expire_loop(app: web.Application):
             removed = app[STORE].expire_unvalidated()
             if removed:
                 log.info("Dropped %d registration(s) Toggl never validated", removed)
+            removed = app[STORE].expire_inactive()
+            if removed:
+                log.info("Dropped %d registration(s) not seen for %d days", removed, INACTIVE_TTL // 86400)
             await asyncio.sleep(EXPIRE_EVERY)
 
     task = asyncio.create_task(run())

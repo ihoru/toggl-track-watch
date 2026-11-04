@@ -6,7 +6,7 @@ import pytest
 from trackwatch_push import toggl
 from trackwatch_push.app import Config, RateLimiter, make_app
 from trackwatch_push.fcm import SendResult, message
-from trackwatch_push.store import UNVALIDATED_TTL, RegistrationStore
+from trackwatch_push.store import INACTIVE_TTL, UNVALIDATED_TTL, RegistrationStore
 
 STOP_EVENT = {
     "event_id": 1,
@@ -255,6 +255,34 @@ def test_unvalidated_registrations_expire(store):
     store.touch(kept.id, validated=True)
     assert store.expire_unvalidated(now=old.created_at + UNVALIDATED_TTL + 1) == 1
     assert [r.token for r in store.all()] == ["validated"]
+
+
+def test_inactive_registrations_expire(store):
+    gone = store.create("gone", 7, None, "")
+    active = store.create("active", 7, None, "")
+    for reg in (gone, active):
+        store.touch(reg.id, validated=True)
+    later = gone.created_at + INACTIVE_TTL + 1
+    store.update(active.id, token="active", user_id=7)  # The daily check-in.
+    store._items[active.id].updated_at = later - 10
+    assert store.expire_inactive(now=later) == 1
+    assert [r.token for r in store.all()] == ["active"]
+
+
+async def test_a_new_token_survives_the_old_tokens_failed_send(client, sender, store):
+    reg = await register(client, token="old")
+    sender.result = SendResult.UNREGISTERED
+    real_send = sender.send
+
+    async def send_while_rotating(token, data, validate_only=False):
+        if not validate_only:
+            store.update(reg["id"], token="new", user_id=7)
+        return await real_send(token, data, validate_only)
+
+    sender.send = send_while_rotating
+    await post_event(client, reg, STOP_EVENT)
+    await settle()
+    assert [r.token for r in store.all()] == ["new"]
 
 
 def test_rate_limiter_window():

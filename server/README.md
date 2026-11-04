@@ -110,8 +110,8 @@ trackwatch-push registrations`) lists the phones: user id, model, validated, las
 ## 3. The app build
 
 Build the phone app with `GOOGLE_SERVICES_JSON` (step 1) and, for your own server,
-`LIVE_UPDATES_URL=https://push.example.com` in the environment (a repository variable or secret in
-CI). Users can also enter a server in **Live updates → Settings**.
+`LIVE_UPDATES_URL=https://push.example.com` in the environment (in CI: a repository **variable**
+`LIVE_UPDATES_URL`, which the Build and Release workflows pass on). Users can also enter a server in **Live updates → Settings**.
 
 In the phone app, tap the sync row to open the details, then **Live updates → Turn on**. The line
 turns to **Live updates on** once Toggl validated the webhook, usually within seconds. Stop a timer
