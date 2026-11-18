@@ -214,20 +214,13 @@ void main() {
     expect(find.text('Phone not reachable'), findsOneWidget);
   });
 
-  testWidgets('new timer with voice description and project', (tester) async {
-    final bridge = FakeWatchBridge(sampleState(running: false))..nextText = 'Planning';
+  testWidgets('new timer starts right away without description or project', (tester) async {
+    final bridge = FakeWatchBridge(sampleState(running: false));
     await pumpWatch(tester, bridge);
 
     await tapText(tester, 'New timer');
-    await tapText(tester, 'Add description');
-    expect(find.text('Planning'), findsOneWidget);
-    await tapText(tester, 'No project');
-    await tapText(tester, 'Internal');
-    await tapText(tester, 'Start');
-    expect(bridge.calls.last, 'start:Planning:2');
+    expect(bridge.calls.last, 'start::null');
     expect(find.text('Add description'), findsNothing);
-    await tester.scrollUntilVisible(find.text('No timer running'), -50, scrollable: find.byType(Scrollable).last);
-    expect(find.text('No timer running'), findsOneWidget);
   });
 
   testWidgets('history: edit, continue and delete an entry', (tester) async {
@@ -383,6 +376,29 @@ void main() {
     await tapText(tester, 'Coding');
     expect(find.text('Edit start time'), findsOneWidget);
     expect(find.text('Edit end time'), findsNothing);
+  });
+
+  testWidgets('settings: asks for exact alarms only when they are missing', (tester) async {
+    final bridge = FakeWatchBridge(sampleState())..settings['exactAlarms'] = false;
+    await pumpWatch(tester, bridge);
+    for (var i = 0; i < 5; i++) {
+      await nextPage(tester);
+    }
+
+    await tapText(tester, 'Settings');
+    await tapText(tester, 'Update every minute');
+    expect(bridge.calls.last, 'allowExactAlarms');
+    await tester.scrollUntilVisible(
+      find.text('Timer notification'),
+      -50,
+      scrollable: find.byType(Scrollable).hitTestable().last,
+    );
+    await tester.ensureVisible(find.text('Timer notification'));
+    await tester.pump();
+    await tester.tap(find.text('Timer notification'));
+    await settle(tester);
+    expect(bridge.settings['ongoing'], false);
+    expect(find.text('Update every minute'), findsNothing);
   });
 
   testWidgets('settings: toggles are saved and the crown step applies', (tester) async {
