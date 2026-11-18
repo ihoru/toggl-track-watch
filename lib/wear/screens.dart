@@ -170,7 +170,7 @@ class NowPage extends StatelessWidget {
           label: 'New timer',
           icon: Icons.add,
           color: Theme.of(context).colorScheme.primary,
-          onTap: () => _push(context, const EditScreen.create()),
+          onTap: () => startTimer(context, '', null),
         ),
         for (final r in recent)
           WearChip(
@@ -553,6 +553,20 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   String? _message;
+  late final AppLifecycleListener _lifecycle;
+
+  @override
+  void initState() {
+    super.initState();
+    // Picks up the Alarms & reminders permission after coming back from the system page.
+    _lifecycle = AppLifecycleListener(onResume: () => WatchScope.read(context).reloadSettings());
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
+  }
 
   Future<void> _openLink(String url) async {
     final ok = await WatchScope.read(context).bridge.openUrlOnPhone(url);
@@ -577,6 +591,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
           model.showOngoing,
           (v) => model.setSetting('ongoing', v),
         ),
+        if (model.showOngoing && !model.exactAlarms)
+          WearChip(
+            label: 'Update every minute',
+            secondary: 'Allow alarms for the time on the watch face',
+            icon: Icons.alarm,
+            onTap: () async {
+              final ok = await model.bridge.allowExactAlarms();
+              if (!ok && mounted) setState(() => _message = 'Allow it in system settings');
+            },
+          ),
         toggle('Vibration', 'On start, stop and save', model.haptics, (v) => model.setSetting('haptics', v)),
         toggle(
           'Compact favorites',
@@ -714,31 +738,28 @@ class EntryScreen extends StatelessWidget {
   }
 }
 
-/// Edits description and project; used both to start a new timer and to edit an entry.
+/// Edits the description and project of an entry.
 class EditScreen extends StatefulWidget {
-  const EditScreen.create({super.key}) : entry = null;
+  const EditScreen.edit({super.key, required this.entry});
 
-  const EditScreen.edit({super.key, required TimeEntry this.entry});
-
-  final TimeEntry? entry;
+  final TimeEntry entry;
 
   @override
   State<EditScreen> createState() => _EditScreenState();
 }
 
 class _EditScreenState extends State<EditScreen> {
-  late String _description = widget.entry?.description ?? '';
-  late int? _projectId = widget.entry?.projectId;
+  late String _description = widget.entry.description;
+  late int? _projectId = widget.entry.projectId;
 
   @override
   Widget build(BuildContext context) {
     final model = WatchScope.of(context);
     final state = model.state;
     final project = state.project(_projectId);
-    final creating = widget.entry == null;
     return RoundList(
       children: [
-        WearHeader(creating ? 'New timer' : 'Edit entry'),
+        const WearHeader('Edit entry'),
         WearChip(
           label: _description.isEmpty ? 'Add description' : _description,
           secondary: 'Description',
@@ -759,16 +780,12 @@ class _EditScreenState extends State<EditScreen> {
         ),
         const SizedBox(height: 8),
         FilledButton.icon(
-          icon: Icon(creating ? Icons.play_arrow : Icons.check),
-          label: Text(creating ? 'Start' : 'Save'),
+          icon: const Icon(Icons.check),
+          label: const Text('Save'),
           onPressed: () {
-            if (creating) {
-              startTimer(context, _description, _projectId);
-            } else {
-              WatchScope.read(context).haptic();
-              model.bridge.update(widget.entry!.id, _description, _projectId);
-              Navigator.of(context).pop();
-            }
+            WatchScope.read(context).haptic();
+            model.bridge.update(widget.entry.id, _description, _projectId);
+            Navigator.of(context).pop();
           },
         ),
       ],
