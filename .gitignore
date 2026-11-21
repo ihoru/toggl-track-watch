@@ -48,3 +48,7 @@ app.*.map.json
 .widget_preview/
 
 __pycache__/
+
+# Firebase config of the phone app (see server/README.md); CI writes it from a secret.
+/android/app/src/phone/google-services.json
+/android/app/google-services.json

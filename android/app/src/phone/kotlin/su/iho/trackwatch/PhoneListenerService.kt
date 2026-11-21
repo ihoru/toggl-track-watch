@@ -21,7 +21,11 @@ class PhoneListenerService : WearableListenerService() {
             val store = PhoneStore.get(this)
             store.watchActive()
             store.changed()
-            Sync.now(this, refresh = true)
+            // With live updates the phone already has every change; only the Refresh button (or a
+            // first sync) still asks Toggl. Queued commands are sent either way.
+            val manual = event.data.contentEquals(Paths.REFRESH_MANUAL)
+            val refresh = manual || !Push.active(this) || store.lastRefresh == 0L
+            if (refresh || store.queue.isNotEmpty()) Sync.now(this, refresh = refresh)
         }
     }
 }

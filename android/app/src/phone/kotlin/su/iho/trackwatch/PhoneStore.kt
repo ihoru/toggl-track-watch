@@ -44,7 +44,7 @@ class PhoneStore private constructor(private val context: Context) {
     val account: Account?
         get() = prefs.getString(K_ACCOUNT, null)?.let {
             val o = JSONObject(it)
-            Account(o.optString("name"), o.optString("email"), o.getLong("workspaceId"), o.optString("workspaceName"))
+            Account(o.optString("name"), o.optString("email"), o.getLong("workspaceId"), o.optString("workspaceName"), o.optLong("userId"))
         }
 
     @get:Synchronized
@@ -112,10 +112,18 @@ class PhoneStore private constructor(private val context: Context) {
         tokens.set(token)
         prefs.edit()
             .putString(K_ACCOUNT, JSONObject().put("name", account.name).put("email", account.email)
-                .put("workspaceId", account.workspaceId).put("workspaceName", account.workspaceName).toString())
+                .put("workspaceId", account.workspaceId).put("workspaceName", account.workspaceName)
+                .put("userId", account.userId).toString())
             .putBoolean(K_REFRESH_REQUESTED, true)
             .apply()
         changed()
+    }
+
+    /** Fills in the Toggl user id of an account saved before it was stored. */
+    @Synchronized
+    fun setUserId(userId: Long) {
+        val o = JSONObject(prefs.getString(K_ACCOUNT, null) ?: return).put("userId", userId)
+        prefs.edit().putString(K_ACCOUNT, o.toString()).apply()
     }
 
     @Synchronized

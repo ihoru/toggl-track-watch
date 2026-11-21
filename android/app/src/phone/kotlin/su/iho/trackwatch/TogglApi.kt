@@ -18,7 +18,8 @@ import java.util.concurrent.TimeUnit
 /** An HTTP error from Toggl. [retryAfterSeconds] is set for quota / rate-limit responses. */
 class TogglException(val code: Int, message: String, val retryAfterSeconds: Long? = null) : Exception(message)
 
-data class Account(val name: String, val email: String, val workspaceId: Long, val workspaceName: String)
+/** [userId] is 0 for accounts saved before live updates needed it; [TogglApi.userId] fetches it. */
+data class Account(val name: String, val email: String, val workspaceId: Long, val workspaceName: String, val userId: Long = 0)
 
 /**
  * Minimal Toggl Track API v9 client. All calls are blocking; call them off the main thread.
@@ -31,8 +32,11 @@ class TogglApi(private val token: String, private val onQuota: (remaining: Int, 
         val me = JSONObject(call("GET", "/me"))
         val wid = me.getLong("default_workspace_id")
         val ws = JSONObject(call("GET", "/workspaces/$wid"))
-        return Account(me.optString("fullname"), me.optString("email"), wid, ws.optString("name"))
+        return Account(me.optString("fullname"), me.optString("email"), wid, ws.optString("name"), me.optLong("id"))
     }
+
+    /** The Toggl user id, which the live-updates server uses to route webhook events. */
+    fun userId(): Long = JSONObject(call("GET", "/me")).getLong("id")
 
     fun projects(wid: Long): List<Project> {
         val result = mutableListOf<Project>()

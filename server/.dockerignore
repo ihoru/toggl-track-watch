@@ -1,0 +1,6 @@
+.venv
+.env
+data
+*service-account*.json
+tests
+.pytest_cache

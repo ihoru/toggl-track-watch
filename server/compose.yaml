@@ -1,0 +1,18 @@
+# docker compose up -d --build   (see README.md)
+services:
+  trackwatch-push:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /secrets/firebase-service-account.json
+    volumes:
+      - data:/data
+      - ./firebase-service-account.json:/secrets/firebase-service-account.json:ro
+    # Put it behind your HTTPS reverse proxy.
+    ports:
+      - "127.0.0.1:${TRACKWATCH_PORT:-8081}:8080"
+
+# A named volume starts as the image's /data, which the app user owns (a host directory would be root's).
+volumes:
+  data:

@@ -22,6 +22,25 @@ val signing = Properties().apply {
 }
 val hasSharedKey = signing.getProperty("storeFile") != null
 
+// Live updates (Firebase Cloud Messaging) for the phone app. The phone app's google-services.json is
+// not committed (see server/README.md); CI writes it from the GOOGLE_SERVICES_JSON secret. Its values
+// become the string resources the Google Services plugin would generate, so Firebase starts on its
+// own. Without the file the app is built without live updates and keeps polling Toggl.
+val firebaseResources: Map<String, String> = file("src/phone/google-services.json").takeIf { it.exists() }?.let { file ->
+    val json = groovy.json.JsonSlurper().parse(file) as Map<*, *>
+    val project = json["project_info"] as Map<*, *>
+    val client = (json["client"] as List<*>).map { it as Map<*, *> }.first {
+        val info = it["client_info"] as Map<*, *>
+        (info["android_client_info"] as Map<*, *>)["package_name"] == "su.iho.trackwatch"
+    }
+    mapOf(
+        "google_app_id" to (client["client_info"] as Map<*, *>)["mobilesdk_app_id"] as String,
+        "gcm_defaultSenderId" to project["project_number"] as String,
+        "google_api_key" to ((client["api_key"] as List<*>).first() as Map<*, *>)["current_key"] as String,
+        "project_id" to project["project_id"] as String,
+    )
+} ?: emptyMap()
+
 android {
     namespace = "su.iho.trackwatch"
     compileSdk = flutter.compileSdkVersion
@@ -30,6 +49,10 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    buildFeatures {
+        resValues = true
     }
 
     defaultConfig {
@@ -48,6 +71,7 @@ android {
         create("phone") {
             dimension = "device"
             versionCode = flutter.versionCode * 10
+            firebaseResources.forEach { (name, value) -> resValue("string", name, value) }
         }
         create("wear") {
             dimension = "device"
@@ -105,6 +129,7 @@ dependencies {
     "phoneImplementation"("androidx.work:work-runtime-ktx:2.10.0")
     "phoneImplementation"("com.squareup.okhttp3:okhttp:4.12.0")
     "phoneImplementation"("com.google.android.gms:play-services-auth-blockstore:16.4.0")
+    "phoneImplementation"("com.google.firebase:firebase-messaging:26.0.1")
 
     "wearImplementation"("androidx.wear.tiles:tiles:1.6.2")
     "wearImplementation"("androidx.wear.protolayout:protolayout:1.4.2")
