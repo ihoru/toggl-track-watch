@@ -115,7 +115,7 @@ dependencies {
     "wearImplementation"("androidx.wear:wear-input:1.1.0")
     "wearImplementation"("androidx.wear:wear:1.4.0")
     "wearImplementation"("androidx.wear:wear-remote-interactions:1.1.0")
-    "wearImplementation"("com.google.guava:guava:33.7.2-android")
+    "wearImplementation"("com.google.guava:guava:33.8.0-android")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20260814")
