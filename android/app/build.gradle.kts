@@ -103,7 +103,7 @@ dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
 
     "phoneImplementation"("androidx.work:work-runtime-ktx:2.10.0")
-    "phoneImplementation"("com.squareup.okhttp3:okhttp:4.12.0")
+    "phoneImplementation"("com.squareup.okhttp3:okhttp:5.5.1")
     "phoneImplementation"("com.google.android.gms:play-services-auth-blockstore:16.4.0")
 
     "wearImplementation"("androidx.wear.tiles:tiles:1.6.2")
